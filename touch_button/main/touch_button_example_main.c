@@ -10,7 +10,7 @@
 #include "esp_log.h"
 
 static const char *TAG = "Touch Button Example";
-#define TOUCH_BUTTON_NUM     14
+#define TOUCH_BUTTON_NUM     2
 
 /* Touch buttons handle */
 static touch_button_handle_t button_handle[TOUCH_BUTTON_NUM];
@@ -19,34 +19,10 @@ static touch_button_handle_t button_handle[TOUCH_BUTTON_NUM];
 static const touch_pad_t channel_array[TOUCH_BUTTON_NUM] = {
     TOUCH_PAD_NUM1,
     TOUCH_PAD_NUM2,
-    TOUCH_PAD_NUM3,
-    TOUCH_PAD_NUM4,
-    TOUCH_PAD_NUM5,
-    TOUCH_PAD_NUM6,
-    TOUCH_PAD_NUM7,
-    TOUCH_PAD_NUM8,
-    TOUCH_PAD_NUM9,
-    TOUCH_PAD_NUM10,
-    TOUCH_PAD_NUM11,
-    TOUCH_PAD_NUM12,
-    TOUCH_PAD_NUM13,
-    TOUCH_PAD_NUM14,
 };
 
 /* Touch buttons channel sensitivity array */
 static const float channel_sens_array[TOUCH_BUTTON_NUM] = {
-    0.1F,
-    0.1F,
-    0.1F,
-    0.1F,
-    0.1F,
-    0.1F,
-    0.1F,
-    0.1F,
-    0.1F,
-    0.1F,
-    0.1F,
-    0.1F,
     0.1F,
     0.1F,
 };
@@ -74,6 +50,8 @@ static void button_handler_task(void *arg)
         }
     }
 }
+
+
 #elif CONFIG_TOUCH_ELEM_CALLBACK
 /* Button callback routine */
 static void button_handler(touch_button_handle_t out_handle, touch_button_message_t *out_message, void *arg)
@@ -89,8 +67,19 @@ static void button_handler(touch_button_handle_t out_handle, touch_button_messag
 }
 #endif
 
+
+
 void app_main(void)
 {
+
+    int messageBuffer[10];
+
+    // start buffer reading text with element read until long wait period (5 sec) of no readings 
+    // second button to send message (1 to type the other to encode/decode)
+    // spit out final bufer / decoded text 
+
+
+
     /* Initialize Touch Element library */
     touch_elem_global_config_t global_config = TOUCH_ELEM_GLOBAL_DEFAULT_CONFIG();
     ESP_ERROR_CHECK(touch_element_install(&global_config));
