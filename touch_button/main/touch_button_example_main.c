@@ -10,12 +10,16 @@
 #include "esp_log.h"
 
 static const char *TAG = "Touch Button Example";
-#define TOUCH_BUTTON_NUM     2
+#define TOUCH_BUTTON_NUM 2
 
 /* Touch buttons handle */
 static touch_button_handle_t button_handle[TOUCH_BUTTON_NUM];
 
-/* Touch buttons channel array */
+/* Touch buttons channel array
+each channel is the GPIO counting up
+channel 1 -> gpio1
+channel 2 -> gpio2
+*/
 static const touch_pad_t channel_array[TOUCH_BUTTON_NUM] = {
     TOUCH_PAD_NUM1,
     TOUCH_PAD_NUM2,
@@ -31,68 +35,76 @@ static const float channel_sens_array[TOUCH_BUTTON_NUM] = {
 /* Button event handler task */
 static void button_handler_task(void *arg)
 {
-    (void) arg; //Unused
+    (void)arg; // Unused
     touch_elem_message_t element_message;
-    while (1) {
+    while (1)
+    {
         /* Waiting for touch element messages */
         touch_element_message_receive(&element_message, portMAX_DELAY);
-        if (element_message.element_type != TOUCH_ELEM_TYPE_BUTTON) {
+        if (element_message.element_type != TOUCH_ELEM_TYPE_BUTTON)
+        {
             continue;
         }
         /* Decode message */
         const touch_button_message_t *button_message = touch_button_get_message(&element_message);
-        if (button_message->event == TOUCH_BUTTON_EVT_ON_PRESS) {
+        if (button_message->event == TOUCH_BUTTON_EVT_ON_PRESS)
+        {
             ESP_LOGI(TAG, "Button[%d] Press", (int)element_message.arg);
-        } else if (button_message->event == TOUCH_BUTTON_EVT_ON_RELEASE) {
+        }
+        else if (button_message->event == TOUCH_BUTTON_EVT_ON_RELEASE)
+        {
             ESP_LOGI(TAG, "Button[%d] Release", (int)element_message.arg);
-        } else if (button_message->event == TOUCH_BUTTON_EVT_ON_LONGPRESS) {
+        }
+        else if (button_message->event == TOUCH_BUTTON_EVT_ON_LONGPRESS)
+        {
             ESP_LOGI(TAG, "Button[%d] LongPress", (int)element_message.arg);
         }
     }
 }
 
-
 #elif CONFIG_TOUCH_ELEM_CALLBACK
 /* Button callback routine */
 static void button_handler(touch_button_handle_t out_handle, touch_button_message_t *out_message, void *arg)
 {
-    (void) out_handle; //Unused
-    if (out_message->event == TOUCH_BUTTON_EVT_ON_PRESS) {
+    (void)out_handle; // Unused
+    if (out_message->event == TOUCH_BUTTON_EVT_ON_PRESS)
+    {
         ESP_LOGI(TAG, "Button[%d] Press", (int)arg);
-    } else if (out_message->event == TOUCH_BUTTON_EVT_ON_RELEASE) {
+    }
+    else if (out_message->event == TOUCH_BUTTON_EVT_ON_RELEASE)
+    {
         ESP_LOGI(TAG, "Button[%d] Release", (int)arg);
-    } else if (out_message->event == TOUCH_BUTTON_EVT_ON_LONGPRESS) {
+    }
+    else if (out_message->event == TOUCH_BUTTON_EVT_ON_LONGPRESS)
+    {
         ESP_LOGI(TAG, "Button[%d] LongPress", (int)arg);
     }
 }
 #endif
-
-
 
 void app_main(void)
 {
 
     int messageBuffer[10];
 
-    // start buffer reading text with element read until long wait period (5 sec) of no readings 
+    // start buffer reading text with element read until long wait period (5 sec) of no readings
     // second button to send message (1 to type the other to encode/decode)
-    // spit out final bufer / decoded text 
-
-
+    // spit out final bufer / decoded text
 
     /* Initialize Touch Element library */
     touch_elem_global_config_t global_config = TOUCH_ELEM_GLOBAL_DEFAULT_CONFIG();
     ESP_ERROR_CHECK(touch_element_install(&global_config));
     ESP_LOGI(TAG, "Touch element library installed");
 
+    // sets button config threshold and lp(low power) time
     touch_button_global_config_t button_global_config = TOUCH_BUTTON_GLOBAL_DEFAULT_CONFIG();
     ESP_ERROR_CHECK(touch_button_install(&button_global_config));
     ESP_LOGI(TAG, "Touch button installed");
-    for (int i = 0; i < TOUCH_BUTTON_NUM; i++) {
+    for (int i = 0; i < TOUCH_BUTTON_NUM; i++)
+    {
         touch_button_config_t button_config = {
             .channel_num = channel_array[i],
-            .channel_sens = channel_sens_array[i]
-        };
+            .channel_sens = channel_sens_array[i]};
         /* Create Touch buttons */
         ESP_ERROR_CHECK(touch_button_create(&button_config, &button_handle[i]));
         /* Subscribe touch button events (On Press, On Release, On LongPress) */
