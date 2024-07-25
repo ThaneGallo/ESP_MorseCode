@@ -39,7 +39,8 @@ static void gpio_fill_buffer(void *arg)
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     check1 = gpio_get_level(GPIO_INPUT_IO_0);
 
-    if (check1)
+    //bc button pulls low
+    if (!check1)
     {
         messageBuffer[buf_end] = 1;
         buf_end++;
