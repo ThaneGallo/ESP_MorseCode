@@ -1,15 +1,19 @@
 menu "Example Configuration"
 
-    choice TOUCH_SENSOR_EXAMPLE_TYPE
-        bool "Select touch element dispatch method"
-        default TOUCH_ELEM_EVENT
-        help
-            Select touch element dispatch method (event task or callback) for this example.
+    orsource "$IDF_PATH/examples/common_components/env_caps/$IDF_TARGET/Kconfig.env_caps"
 
-        config TOUCH_ELEM_EVENT
-            bool "Dispatch by event task"
-        config TOUCH_ELEM_CALLBACK
-            bool "Dispatch by callback"
-    endchoice
+    config GPIO_INPUT_0
+        int "GPIO input pin 0"
+        range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX
+        default 2
+        help
+            GPIO pin number to be used as GPIO_INPUT_IO_0.
+    config GPIO_INPUT_1
+        int "GPIO input pin 1"
+        range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX
+        default 4
+        help
+             GPIO pin number to be used as GPIO_INPUT_IO_1.
+        
 
 endmenu

@@ -4721,34 +4721,57 @@
     {
         "children": [
             {
-                "children": [
-                    {
-                        "children": [],
-                        "depends_on": "<choice TOUCH_SENSOR_EXAMPLE_TYPE>",
-                        "help": null,
-                        "id": "TOUCH_ELEM_EVENT",
-                        "name": "TOUCH_ELEM_EVENT",
-                        "range": null,
-                        "title": "Dispatch by event task",
-                        "type": "bool"
-                    },
-                    {
-                        "children": [],
-                        "depends_on": "<choice TOUCH_SENSOR_EXAMPLE_TYPE>",
-                        "help": null,
-                        "id": "TOUCH_ELEM_CALLBACK",
-                        "name": "TOUCH_ELEM_CALLBACK",
-                        "range": null,
-                        "title": "Dispatch by callback",
-                        "type": "bool"
-                    }
-                ],
+                "children": [],
                 "depends_on": null,
-                "help": "Select touch element dispatch method (event task or callback) for this example.",
-                "id": "example-configuration-select-touch-element-dispatch-method",
-                "name": "TOUCH_SENSOR_EXAMPLE_TYPE",
-                "title": "Select touch element dispatch method",
-                "type": "choice"
+                "help": null,
+                "id": "ENV_GPIO_RANGE_MIN",
+                "name": "ENV_GPIO_RANGE_MIN",
+                "range": null,
+                "title": null,
+                "type": "int"
+            },
+            {
+                "children": [],
+                "depends_on": null,
+                "help": null,
+                "id": "ENV_GPIO_RANGE_MAX",
+                "name": "ENV_GPIO_RANGE_MAX",
+                "range": null,
+                "title": null,
+                "type": "int"
+            },
+            {
+                "children": [],
+                "depends_on": null,
+                "help": null,
+                "id": "ENV_GPIO_IN_RANGE_MAX",
+                "name": "ENV_GPIO_IN_RANGE_MAX",
+                "range": null,
+                "title": null,
+                "type": "int"
+            },
+            {
+                "children": [],
+                "depends_on": null,
+                "help": null,
+                "id": "ENV_GPIO_OUT_RANGE_MAX",
+                "name": "ENV_GPIO_OUT_RANGE_MAX",
+                "range": null,
+                "title": null,
+                "type": "int"
+            },
+            {
+                "children": [],
+                "depends_on": null,
+                "help": "GPIO pin number to be used as GPIO_INPUT_IO_0.",
+                "id": "GPIO_INPUT_0",
+                "name": "GPIO_INPUT_0",
+                "range": [
+                    0,
+                    39
+                ],
+                "title": "GPIO input pin 0",
+                "type": "int"
             }
         ],
         "depends_on": null,
