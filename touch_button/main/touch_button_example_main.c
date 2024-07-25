@@ -22,6 +22,13 @@ static QueueHandle_t gpio_evt_queue = NULL;
 
 static void gpio_send_buffer(void *arg)
 {
+    int i; 
+
+    for(i = 0; i <= messageBuffer; i++){
+        printf("%i", messageBuffer[i]);
+    }
+
+    printf("\n");
 }
 
 static void gpio_fill_buffer(void *arg)
@@ -72,13 +79,4 @@ void app_main(void)
     // second button to send message (1 to type the other to encode/decode)
     // spit out final bufer / decoded text
 
-    // long vs short
-
-    while (1)
-    {
-
-        elseif()
-        {
-        }
-    }
 }
