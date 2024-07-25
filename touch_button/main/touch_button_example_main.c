@@ -11,7 +11,7 @@
 #include "esp_log.h"
 
 static int messageBuffer[10];
-static uint8_t buffer_location = 0;
+static uint8_t buf_end = 0;
 
 static QueueHandle_t gpio_evt_queue = NULL;
 
@@ -24,10 +24,11 @@ static void gpio_send_buffer(void *arg)
 {
     int i; 
 
-    for(i = 0; i <= messageBuffer; i++){
+    for(i = 0; i <= buf_end; i++){
         printf("%i", messageBuffer[i]);
     }
 
+    buf_end = 0;
     printf("\n");
 }
 
@@ -40,13 +41,13 @@ static void gpio_fill_buffer(void *arg)
 
     if (check1)
     {
-        messageBuffer[buffer_location] = 1;
-        buffer_location++;
+        messageBuffer[buf_end] = 1;
+        buf_end++;
     }
     else
     {
-        messageBuffer[buffer_location] = 0;
-        buffer_location++;
+        messageBuffer[buf_end] = 0;
+        buf_end++;
     }
 }
 
