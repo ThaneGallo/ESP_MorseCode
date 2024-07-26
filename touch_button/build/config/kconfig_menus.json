@@ -4772,6 +4772,19 @@
                 ],
                 "title": "GPIO input pin 0",
                 "type": "int"
+            },
+            {
+                "children": [],
+                "depends_on": null,
+                "help": "GPIO pin number to be used as GPIO_INPUT_IO_1.",
+                "id": "GPIO_INPUT_1",
+                "name": "GPIO_INPUT_1",
+                "range": [
+                    0,
+                    39
+                ],
+                "title": "GPIO input pin 1",
+                "type": "int"
             }
         ],
         "depends_on": null,

@@ -5,5 +5,6 @@
   "files.associations": {
     "task.h": "c"
   },
-  "C_Cpp.errorSquiggles": "enabled"
+  "C_Cpp.errorSquiggles": "enabled",
+  "idf.flashType": "UART"
 }
