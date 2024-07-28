@@ -16,6 +16,7 @@ static uint8_t buf_end = 0;
 
 static int64_t start_time;
 static int64_t end_time;
+static int64_t press_length = 1000000; // 1 second in microseconds
 
 static QueueHandle_t gpio_evt_queue = NULL;
 
@@ -38,6 +39,7 @@ static void IRAM_ATTR gpio_start_event_handler(void *arg)
 
     start_time = esp_timer_get_time();
     ESP_DRAM_LOGI(MORSE_TAG, "start time: %d", start_time);
+
 }
 
 static void IRAM_ATTR gpio_end_event_handler(void *arg)
@@ -51,6 +53,23 @@ static void IRAM_ATTR gpio_end_event_handler(void *arg)
 
     end_time = esp_timer_get_time();
     ESP_DRAM_LOGI(MORSE_TAG, "end time: %d", end_time);
+
+    ESP_DRAM_LOGI(MORSE_TAG, "time elapsed: %d", end_time - start_time);
+
+    if(press_length < (end_time - start_time)){
+        messageBuffer[buf_end] = 1;
+        buf_end++;
+        ESP_DRAM_LOGI(MORSE_TAG, "1 in buffer");
+
+    }
+    else {
+        messageBuffer[buf_end] = 0;
+        buf_end++;
+        ESP_DRAM_LOGI(MORSE_TAG, "0 in buffer");
+    }
+
+    ESP_DRAM_LOGI(MORSE_TAG, "placed in buffer: %d", messageBuffer[buf_end - 1]);
+
 }
 
 static void gpio_task_example(void *arg)
