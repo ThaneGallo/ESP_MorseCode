@@ -36,7 +36,7 @@ static void IRAM_ATTR gpio_start_event_handler(void *arg)
 {
     static int64_t lMillis = 0;
 
-    if ((esp_timer_get_time() - lMillis) < 5)
+    if ((esp_timer_get_time() - lMillis) < 20000) //20ms
         return;
 
     lMillis = esp_timer_get_time();
@@ -49,7 +49,7 @@ static void IRAM_ATTR gpio_end_event_handler(void *arg)
 {
     static int64_t lMillis = 0;
 
-    if ((esp_timer_get_time() - lMillis) < 10)
+    if ((esp_timer_get_time() - lMillis) < 20000) //20ms
         return;
 
     lMillis = esp_timer_get_time();
