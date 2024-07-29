@@ -24,6 +24,7 @@ static QueueHandle_t gpio_evt_queue = NULL;
 #define GPIO_INPUT_IO_START 4 // start event sense
 #define GPIO_INPUT_IO_END 5 // end event sense
 #define GPIO_INPUT_IO_SEND 23 // send event sense
+#define BUFFER_LENGTH 10
 
 #define GPIO_INPUT_PIN_SEL ((1ULL << GPIO_INPUT_IO_START) | (1ULL << GPIO_INPUT_IO_END))
 #define ESP_INTR_FLAG_DEFAULT 0
@@ -56,6 +57,11 @@ static void IRAM_ATTR gpio_end_event_handler(void *arg)
     ESP_DRAM_LOGI(MORSE_TAG, "end time: %d", end_time);
 
     ESP_DRAM_LOGI(MORSE_TAG, "time elapsed: %d", end_time - start_time);
+
+    //handles out of bounds "errors"
+    if(buf_end >= BUFFER_LENGTH){
+        return;
+    }
 
     if (press_length < (end_time - start_time))
     {
