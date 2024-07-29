@@ -87,7 +87,7 @@ static void IRAM_ATTR gpio_send_buffer(void *arg)
 
     for (i = 0; i < buf_end; i++)
     {
-    ESP_DRAM_LOGI(MORSE_TAG, "buffer[%d]: %d", i, messageBuffer[buf_end - 1]);
+    ESP_DRAM_LOGI(MORSE_TAG, "buffer[%d]: %d", i, messageBuffer[i]);
     }
 
     buf_end = 0;
