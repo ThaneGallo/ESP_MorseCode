@@ -31,6 +31,7 @@ static QueueHandle_t gpio_evt_queue = NULL;
 
 #define BUFFER_LENGTH 2048
 static uint8_t messageBuffer[2048];
+static char charMessageBuffer[255];
 
 #define GPIO_INPUT_PIN_SEL ((1ULL << GPIO_INPUT_IO_START) | (1ULL << GPIO_INPUT_IO_END))
 #define ESP_INTR_FLAG_DEFAULT 0
@@ -47,7 +48,6 @@ static void IRAM_ATTR gpio_start_event_handler(void *arg)
 
     start_time = esp_timer_get_time(); // store time of last event
     input_in_progress = 1;             // to prevent multipress
-
 
     if ((start_time - time_last_end_event > SPACE_LENGTH) && (buf_end != 0))
     {
@@ -110,7 +110,6 @@ static void IRAM_ATTR gpio_send_event_handler(void *arg)
 
     lMillis = esp_timer_get_time();
 
-
     // end each message with 2 twos
     if ((buf_end != 0) && (!input_in_progress))
     {
@@ -126,122 +125,153 @@ static void IRAM_ATTR gpio_send_event_handler(void *arg)
     buf_end = 0;
 }
 
-char processMorseCode(int decimalValue) {
-    switch (decimalValue) {
-        case 5:
-            // Handle case for A: .-
-            return 'a';
-        case 24:
-            // Handle case for B: -..
-            return 'b';
-        case 26:
-            // Handle case for C: -.-.
-            return 'c';
-        case 12:
-            // Handle case for D: -..
-            return 'd';
-        case 2:
-            // Handle case for E: .
-            return 'e';
-        case 18:
-            // Handle case for F: ..-.
-            return 'f';
-        case 14:
-            // Handle case for G: --.
-            return 'g';
-        case 16:
-            // Handle case for H: ....
-            return 'h';
-        case 4:
-            // Handle case for I: ..
-            return 'i';
-        case 23:
-            // Handle case for J: .---
-            return 'j';
-        case 13:
-            // Handle case for K: -.- 
-            return 'k';
-        case 20:
-            // Handle case for L: .-..
-            return 'l';
-        case 7:
-            // Handle case for M: --
-            return 'm';
-        case 6:
-            // Handle case for N: -.
-            return 'n';
-        case 15:
-            // Handle case for O: ---
-            return 'o';
-        case 22:
-            // Handle case for P: .--.
-            return 'p';
-        case 29:
-            // Handle case for Q: --.-
-            return 'q';
-        case 10:
-            // Handle case for R: .-.
-            return 'r';
-        case 8:
-            // Handle case for S: ...
-            return 's';
-        case 3:
-            // Handle case for T: -
-            return 't';
-        case 9:
-            // Handle case for U: ..-
-            return 'u';
-        case 17:
-            // Handle case for V: ...-
-            return 'v';
-        case 11:
-            // Handle case for W: .--
-            return 'w';
-        case 25:
-            // Handle case for X: -..-
-            return 'x';
-        case 27:
-            // Handle case for Y: -.-- 
-            return 'y';
-        case 28:
-            // Handle case for Z: --..
-            return 'z';
-        case 63:
-            // Handle case for 0: -----
-            return '0';
-        case 47:
-            // Handle case for 1: .----
-            return '1';
-        case 39:
-            // Handle case for 2: ..---
-            return '2';
-        case 35:
-            // Handle case for 3: ...--
-            return '3';
-        case 33:
-            // Handle case for 4: ....-
-            return '4';
-        case 64:
-            // Handle case for 5: .....
-            return '5';
-        case 48:
-            // Handle case for 6: -....
-            return '6';
-        case 56:
-            // Handle case for 7: --...
-            return '7';
-        case 60:
-            // Handle case for 8: ---..
-            return '8';
-        case 61:
-            // Handle case for 9: ----.
-            return '9';
-        default:
-            // Handle unknown cases
-            return '=';
+char getLetterMorseCode(int decimalValue)
+{
+    switch (decimalValue)
+    {
+    case 5:
+        // Handle case for A: .-
+        return 'a';
+    case 24:
+        // Handle case for B: -..
+        return 'b';
+    case 26:
+        // Handle case for C: -.-.
+        return 'c';
+    case 12:
+        // Handle case for D: -..
+        return 'd';
+    case 2:
+        // Handle case for E: .
+        return 'e';
+    case 18:
+        // Handle case for F: ..-.
+        return 'f';
+    case 14:
+        // Handle case for G: --.
+        return 'g';
+    case 16:
+        // Handle case for H: ....
+        return 'h';
+    case 4:
+        // Handle case for I: ..
+        return 'i';
+    case 23:
+        // Handle case for J: .---
+        return 'j';
+    case 13:
+        // Handle case for K: -.-
+        return 'k';
+    case 20:
+        // Handle case for L: .-..
+        return 'l';
+    case 7:
+        // Handle case for M: --
+        return 'm';
+    case 6:
+        // Handle case for N: -.
+        return 'n';
+    case 15:
+        // Handle case for O: ---
+        return 'o';
+    case 22:
+        // Handle case for P: .--.
+        return 'p';
+    case 29:
+        // Handle case for Q: --.-
+        return 'q';
+    case 10:
+        // Handle case for R: .-.
+        return 'r';
+    case 8:
+        // Handle case for S: ...
+        return 's';
+    case 3:
+        // Handle case for T: -
+        return 't';
+    case 9:
+        // Handle case for U: ..-
+        return 'u';
+    case 17:
+        // Handle case for V: ...-
+        return 'v';
+    case 11:
+        // Handle case for W: .--
+        return 'w';
+    case 25:
+        // Handle case for X: -..-
+        return 'x';
+    case 27:
+        // Handle case for Y: -.--
+        return 'y';
+    case 28:
+        // Handle case for Z: --..
+        return 'z';
+    case 63:
+        // Handle case for 0: -----
+        return '0';
+    case 47:
+        // Handle case for 1: .----
+        return '1';
+    case 39:
+        // Handle case for 2: ..---
+        return '2';
+    case 35:
+        // Handle case for 3: ...--
+        return '3';
+    case 33:
+        // Handle case for 4: ....-
+        return '4';
+    case 64:
+        // Handle case for 5: .....
+        return '5';
+    case 48:
+        // Handle case for 6: -....
+        return '6';
+    case 56:
+        // Handle case for 7: --...
+        return '7';
+    case 60:
+        // Handle case for 8: ---..
+        return '8';
+    case 61:
+        // Handle case for 9: ----.
+        return '9';
+    default:
+        // Handle unknown cases
+        return '=';
     }
 }
 
+char* encodeMorseCode()
+{
+    int letterIndex = 0;  // curent position
+    int startIndex = 0;   // index of last 2
+    int charDecicmal = 2; // to add leading 1 to binary value
+
+    int i = 0;
+
+    do
+    {
+        do
+        {
+
+            charDecicmal = (charDecicmal << i) + messageBuffer[i];
+            
+
+        } while(messageBuffer[i++] != '2');
+
+        startIndex = i;
+
+        charMessageBuffer[letterIndex] = getLetterMorseCode(charDecicmal);
+
+        charDecicmal = 0;
+        letterIndex++;
+
+    } while (messageBuffer[i] != '2');
+
+    return charMessageBuffer;
+}
 
 static void gpio_task_example(void *arg)
 {
@@ -249,7 +279,7 @@ static void gpio_task_example(void *arg)
 
     printf("in gpio task");
 
-    for (;)
+    for (;;)
     {                                                              // ; = infinite loop
         if (xQueueReceive(gpio_evt_queue, &io_num, portMAX_DELAY)) // if the queue is recieved a task
         {
