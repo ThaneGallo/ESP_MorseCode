@@ -37,8 +37,6 @@ static uint8_t messageBuffer[2048];
 #define MORSE_TAG "Morse code tag"
 #define DEBOUNCE_DELAY 20000 // time required between consecutive inputs to prevent debounce issues
 
-// probably race condition between handlers for filling the buffer
-
 static void IRAM_ATTR gpio_start_event_handler(void *arg)
 {
     // ignore false readings. Wait at least 20ms.
@@ -53,7 +51,7 @@ static void IRAM_ATTR gpio_start_event_handler(void *arg)
 
     if ((start_time - time_last_end_event > SPACE_LENGTH) && (buf_end != 0))
     {
-        messageBuffer[buf_end] = '2';
+        messageBuffer[buf_end] = '3';
         buf_end++;
     }
 
@@ -84,16 +82,16 @@ static void IRAM_ATTR gpio_end_event_handler(void *arg)
     if (PRESS_LENGTH < (end_time - start_time))
     {
         // must hold button for at least press_length to get a 1
-        messageBuffer[buf_end] = '1';
+        messageBuffer[buf_end] = '2';
         buf_end++;
-        // ESP_DRAM_LOGI(MORSE_TAG, "1 in buffer");
+        // ESP_DRAM_LOGI(MORSE_TAG, "2 in buffer");
     }
     else
     {
         // 0 if button held for less than press_length time
-        messageBuffer[buf_end] = '0';
+        messageBuffer[buf_end] = '1';
         buf_end++;
-        // ESP_DRAM_LOGI(MORSE_TAG, "0 in buffer");
+        // ESP_DRAM_LOGI(MORSE_TAG, "1 in buffer");
     }
 
     input_in_progress = 0;
@@ -116,8 +114,8 @@ static void IRAM_ATTR gpio_send_event_handler(void *arg)
     // end each message with 2 twos
     if ((buf_end != 0) && (!input_in_progress))
     {
-        messageBuffer[buf_end++] = '2';
-        messageBuffer[buf_end++] = '2';
+        messageBuffer[buf_end++] = '3';
+        messageBuffer[buf_end++] = '3';
     }
 
     for (i = 0; i < buf_end; i++)
@@ -127,6 +125,123 @@ static void IRAM_ATTR gpio_send_event_handler(void *arg)
 
     buf_end = 0;
 }
+
+void processMorseCode(int decimalValue) {
+    switch (decimalValue) {
+        case 5:
+            // Handle case for A: .-
+            break;
+        case 24:
+            // Handle case for B: -..
+            break;
+        case 26:
+            // Handle case for C: -.-.
+            break;
+        case 12:
+            // Handle case for D: -..
+            break;
+        case 2:
+            // Handle case for E: .
+            break;
+        case 18:
+            // Handle case for F: ..-.
+            break;
+        case 14:
+            // Handle case for G: --.
+            break;
+        case 16:
+            // Handle case for H: ....
+            break;
+        case 4:
+            // Handle case for I: ..
+            break;
+        case 23:
+            // Handle case for J: .---
+            break;
+        case 13:
+            // Handle case for K: -.- 
+            break;
+        case 20:
+            // Handle case for L: .-..
+            break;
+        case 7:
+            // Handle case for M: --
+            break;
+        case 6:
+            // Handle case for N: -.
+            break;
+        case 15:
+            // Handle case for O: ---
+            break;
+        case 22:
+            // Handle case for P: .--.
+            break;
+        case 29:
+            // Handle case for Q: --.-
+            break;
+        case 10:
+            // Handle case for R: .-.
+            break;
+        case 8:
+            // Handle case for S: ...
+            break;
+        case 3:
+            // Handle case for T: -
+            break;
+        case 9:
+            // Handle case for U: ..-
+            break;
+        case 17:
+            // Handle case for V: ...-
+            break;
+        case 11:
+            // Handle case for W: .--
+            break;
+        case 25:
+            // Handle case for X: -..-
+            break;
+        case 27:
+            // Handle case for Y: -.-- 
+            break;
+        case 28:
+            // Handle case for Z: --..
+            break;
+        case 63:
+            // Handle case for 0: -----
+            break;
+        case 47:
+            // Handle case for 1: .----
+            break;
+        case 39:
+            // Handle case for 2: ..---
+            break;
+        case 35:
+            // Handle case for 3: ...--
+            break;
+        case 33:
+            // Handle case for 4: ....-
+            break;
+        case 64:
+            // Handle case for 5: .....
+            break;
+        case 48:
+            // Handle case for 6: -....
+            break;
+        case 56:
+            // Handle case for 7: --...
+            break;
+        case 60:
+            // Handle case for 8: ---..
+            break;
+        case 61:
+            // Handle case for 9: ----.
+            break;
+        default:
+            // Handle unknown cases
+            break;
+    }
+}
+
 
 static void gpio_task_example(void *arg)
 {
