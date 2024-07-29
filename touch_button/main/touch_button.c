@@ -12,74 +12,93 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
 
-static bool messageBuffer[10];
-static uint8_t buf_end = 0;
+static uint32_t buf_end = 0;
 
 static int64_t start_time;
 static int64_t end_time;
-static int64_t press_length = 1000000; // 1 second in microseconds
+static int64_t time_last_end_event;
+static bool input_in_progress;
+
+#define PRESS_LENGTH 1000000 // 1 second in microseconds
+#define SPACE_LENGTH 2000000 // 2 seconds in microseconds
 
 static QueueHandle_t gpio_evt_queue = NULL;
 
 // START, END, AND SEND EVENTS
 #define GPIO_INPUT_IO_START 4 // start event sense
-#define GPIO_INPUT_IO_END 5 // end event sense
+#define GPIO_INPUT_IO_END 5   // end event sense
 #define GPIO_INPUT_IO_SEND 23 // send event sense
-#define BUFFER_LENGTH 10
+
+#define BUFFER_LENGTH 2048
+static uint8_t messageBuffer[2048];
 
 #define GPIO_INPUT_PIN_SEL ((1ULL << GPIO_INPUT_IO_START) | (1ULL << GPIO_INPUT_IO_END))
 #define ESP_INTR_FLAG_DEFAULT 0
 #define MORSE_TAG "Morse code tag"
 #define DEBOUNCE_DELAY 20000 // time required between consecutive inputs to prevent debounce issues
 
-
-
-//probably race condition between handlers for filling the buffer
+// probably race condition between handlers for filling the buffer
 
 static void IRAM_ATTR gpio_start_event_handler(void *arg)
 {
     // ignore false readings. Wait at least 20ms.
-    if ((esp_timer_get_time() - start_time) < DEBOUNCE_DELAY) {
+    if ((esp_timer_get_time() - start_time) < DEBOUNCE_DELAY)
+    {
         return;
     }
 
     start_time = esp_timer_get_time(); // store time of last event
+    input_in_progress = 1;             // to prevent multipress
+
+
+    if ((start_time - time_last_end_event > SPACE_LENGTH) && (buf_end != 0))
+    {
+        messageBuffer[buf_end] = '2';
+        buf_end++;
+    }
+
     ESP_DRAM_LOGI(MORSE_TAG, "start time: %d", start_time);
 }
 
 static void IRAM_ATTR gpio_end_event_handler(void *arg)
 {
     // ignore false readings. Wait at least 20ms.
-    if ((esp_timer_get_time() - end_time) < DEBOUNCE_DELAY) {
+    if ((esp_timer_get_time() - end_time) < DEBOUNCE_DELAY)
+    {
         return;
     }
 
     end_time = esp_timer_get_time(); // store time of last event
+    time_last_end_event = end_time;
+
     ESP_DRAM_LOGI(MORSE_TAG, "end time: %d", end_time);
 
     ESP_DRAM_LOGI(MORSE_TAG, "time elapsed: %d", end_time - start_time);
 
-    //handles out of bounds "errors"
-    if(buf_end >= BUFFER_LENGTH){
+    // handles out of bounds "errors"
+    if (buf_end >= BUFFER_LENGTH - 2)
+    {
         return;
     }
 
-    if (press_length < (end_time - start_time))
+    if (PRESS_LENGTH < (end_time - start_time))
     {
         // must hold button for at least press_length to get a 1
-        messageBuffer[buf_end] = 1;
+        messageBuffer[buf_end] = '1';
         buf_end++;
         // ESP_DRAM_LOGI(MORSE_TAG, "1 in buffer");
     }
     else
     {
         // 0 if button held for less than press_length time
-        messageBuffer[buf_end] = 0;
+        messageBuffer[buf_end] = '0';
         buf_end++;
         // ESP_DRAM_LOGI(MORSE_TAG, "0 in buffer");
     }
 
-    ESP_DRAM_LOGW(MORSE_TAG, "placed in buffer: %d", messageBuffer[buf_end - 1]);
+    input_in_progress = 0;
+
+    ESP_DRAM_LOGW(MORSE_TAG, "placed in buffer: %c", messageBuffer[buf_end - 1]);
 }
 
 static void IRAM_ATTR gpio_send_event_handler(void *arg)
@@ -88,17 +107,25 @@ static void IRAM_ATTR gpio_send_event_handler(void *arg)
     uint8_t i;
 
     // ignore false readings. Wait at least 20ms before sending again.
-    if ((esp_timer_get_time() - lMillis) < DEBOUNCE_DELAY)
+    if (((esp_timer_get_time() - lMillis) < DEBOUNCE_DELAY) || input_in_progress)
         return;
 
     lMillis = esp_timer_get_time();
 
-    for (i = 0; i < buf_end; i++) {
-        ESP_DRAM_LOGI(MORSE_TAG, "buffer[%d]: %d", i, messageBuffer[i]);
+
+    // end each message with 2 twos
+    if ((buf_end != 0) && (!input_in_progress))
+    {
+        messageBuffer[buf_end++] = '2';
+        messageBuffer[buf_end++] = '2';
+    }
+
+    for (i = 0; i < buf_end; i++)
+    {
+        ESP_DRAM_LOGI(MORSE_TAG, "buffer[%d]: %c", i, messageBuffer[i]);
     }
 
     buf_end = 0;
-
 }
 
 static void gpio_task_example(void *arg)
