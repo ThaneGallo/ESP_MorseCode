@@ -20,13 +20,15 @@ static int64_t press_length = 1000000; // 1 second in microseconds
 
 static QueueHandle_t gpio_evt_queue = NULL;
 
-#define GPIO_INPUT_IO_0 4
-#define GPIO_INPUT_IO_1 5
-#define GPIO_INPUT_IO_2 23
+// START, END, AND SEND EVENTS
+#define GPIO_INPUT_IO_START 4 // start event sense
+#define GPIO_INPUT_IO_END 5 // end event sense
+#define GPIO_INPUT_IO_SEND 23 // send event sense
 
-#define GPIO_INPUT_PIN_SEL ((1ULL << GPIO_INPUT_IO_0) | (1ULL << GPIO_INPUT_IO_1))
+#define GPIO_INPUT_PIN_SEL ((1ULL << GPIO_INPUT_IO_START) | (1ULL << GPIO_INPUT_IO_END))
 #define ESP_INTR_FLAG_DEFAULT 0
 #define MORSE_TAG "Morse code tag"
+#define DEBOUNCE_DELAY 20000 // time required between consecutive inputs to prevent debounce issues
 
 
 
@@ -34,39 +36,37 @@ static QueueHandle_t gpio_evt_queue = NULL;
 
 static void IRAM_ATTR gpio_start_event_handler(void *arg)
 {
-    static int64_t lMillis = 0;
-
-    if ((esp_timer_get_time() - lMillis) < 20000) //20ms
+    // ignore false readings. Wait at least 20ms.
+    if ((esp_timer_get_time() - start_time) < DEBOUNCE_DELAY) {
         return;
+    }
 
-    lMillis = esp_timer_get_time();
-
-    start_time = esp_timer_get_time();
+    start_time = esp_timer_get_time(); // store time of last event
     ESP_DRAM_LOGI(MORSE_TAG, "start time: %d", start_time);
 }
 
 static void IRAM_ATTR gpio_end_event_handler(void *arg)
 {
-    static int64_t lMillis = 0;
-
-    if ((esp_timer_get_time() - lMillis) < 20000) //20ms
+    // ignore false readings. Wait at least 20ms.
+    if ((esp_timer_get_time() - end_time) < DEBOUNCE_DELAY) {
         return;
+    }
 
-    lMillis = esp_timer_get_time();
-
-    end_time = esp_timer_get_time();
+    end_time = esp_timer_get_time(); // store time of last event
     ESP_DRAM_LOGI(MORSE_TAG, "end time: %d", end_time);
 
     ESP_DRAM_LOGI(MORSE_TAG, "time elapsed: %d", end_time - start_time);
 
     if (press_length < (end_time - start_time))
     {
+        // must hold button for at least press_length to get a 1
         messageBuffer[buf_end] = 1;
         buf_end++;
         // ESP_DRAM_LOGI(MORSE_TAG, "1 in buffer");
     }
     else
     {
+        // 0 if button held for less than press_length time
         messageBuffer[buf_end] = 0;
         buf_end++;
         // ESP_DRAM_LOGI(MORSE_TAG, "0 in buffer");
@@ -75,19 +75,19 @@ static void IRAM_ATTR gpio_end_event_handler(void *arg)
     ESP_DRAM_LOGW(MORSE_TAG, "placed in buffer: %d", messageBuffer[buf_end - 1]);
 }
 
-static void IRAM_ATTR gpio_send_buffer(void *arg)
+static void IRAM_ATTR gpio_send_event_handler(void *arg)
 {
-    static int64_t lMillis = 0;
+    static int64_t lMillis = 0; // time since last send.
     uint8_t i;
 
-    if ((esp_timer_get_time() - lMillis) < 10)
+    // ignore false readings. Wait at least 20ms before sending again.
+    if ((esp_timer_get_time() - lMillis) < DEBOUNCE_DELAY)
         return;
 
     lMillis = esp_timer_get_time();
 
-    for (i = 0; i < buf_end; i++)
-    {
-    ESP_DRAM_LOGI(MORSE_TAG, "buffer[%d]: %d", i, messageBuffer[i]);
+    for (i = 0; i < buf_end; i++) {
+        ESP_DRAM_LOGI(MORSE_TAG, "buffer[%d]: %d", i, messageBuffer[i]);
     }
 
     buf_end = 0;
@@ -117,7 +117,7 @@ void app_main(void)
     // interrupt of falling edge
     io_conf.intr_type = GPIO_INTR_NEGEDGE;
     // bit mask of the pins, use GPIO4/5 here
-    io_conf.pin_bit_mask = (1ULL << GPIO_INPUT_IO_0) | (1ULL << GPIO_INPUT_IO_2);
+    io_conf.pin_bit_mask = (1ULL << GPIO_INPUT_IO_START) | (1ULL << GPIO_INPUT_IO_SEND);
     // set as input mode
     io_conf.mode = GPIO_MODE_INPUT;
     // enable high on default
@@ -127,7 +127,7 @@ void app_main(void)
     // interrupt of falling edge
     io_conf.intr_type = GPIO_INTR_POSEDGE;
     // bit mask of the pins, use GPIO4/5 here
-    io_conf.pin_bit_mask = (1ULL << GPIO_INPUT_IO_1);
+    io_conf.pin_bit_mask = (1ULL << GPIO_INPUT_IO_END);
     // set as input mode
     io_conf.mode = GPIO_MODE_INPUT;
     // enable high on default
@@ -144,11 +144,11 @@ void app_main(void)
     gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
 
     // takes start time of button1 press
-    gpio_isr_handler_add(GPIO_INPUT_IO_0, gpio_start_event_handler, (void *)GPIO_INPUT_IO_0);
+    gpio_isr_handler_add(GPIO_INPUT_IO_START, gpio_start_event_handler, (void *)GPIO_INPUT_IO_START);
     // takes end time of button1 pess
-    gpio_isr_handler_add(GPIO_INPUT_IO_1, gpio_end_event_handler, (void *)GPIO_INPUT_IO_1);
+    gpio_isr_handler_add(GPIO_INPUT_IO_END, gpio_end_event_handler, (void *)GPIO_INPUT_IO_END);
 
-    gpio_isr_handler_add(GPIO_INPUT_IO_2, gpio_send_buffer, (void *)GPIO_INPUT_IO_2);
+    gpio_isr_handler_add(GPIO_INPUT_IO_SEND, gpio_send_event_handler, (void *)GPIO_INPUT_IO_SEND);
 
     int cnt = 0;
     while (1)
