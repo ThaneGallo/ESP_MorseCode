@@ -1,7 +1,7 @@
 {
     "version":            "1.1",
     "project_name":       "touch_button",
-    "project_version":    "aaafdf7-dirty",
+    "project_version":    "278ce73-dirty",
     "project_path":       "C:/Users/thane/projects/ESP_MorseCode/touch_button",
     "idf_path":           "C:/Users/thane/esp/v5.2.2/esp-idf",
     "build_dir":          "C:/Users/thane/projects/ESP_MorseCode/touch_button/build",
@@ -805,7 +805,7 @@
             "managed_reqs": [],
             "managed_priv_reqs": [],
             "file": "C:/Users/thane/projects/ESP_MorseCode/touch_button/build/esp-idf/main/libmain.a",
-            "sources": [ "C:/Users/thane/projects/ESP_MorseCode/touch_button/main/touch_button_example_main.c" ],
+            "sources": [ "C:/Users/thane/projects/ESP_MorseCode/touch_button/main/touch_button.c" ],
             "include_dirs": [ "." ]
         },
         "mbedtls": {
