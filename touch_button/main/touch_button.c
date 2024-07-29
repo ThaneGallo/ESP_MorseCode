@@ -7,11 +7,12 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_timer.h"
+#include "stdbool.h"
 
 #include "driver/gpio.h"
 #include "esp_log.h"
 
-static int messageBuffer[10];
+static bool messageBuffer[10];
 static uint8_t buf_end = 0;
 
 static int64_t start_time;
