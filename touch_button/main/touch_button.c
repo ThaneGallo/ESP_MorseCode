@@ -82,14 +82,14 @@ static void IRAM_ATTR gpio_end_event_handler(void *arg)
     if (PRESS_LENGTH < (end_time - start_time))
     {
         // must hold button for at least press_length to get a 1
-        messageBuffer[buf_end] = '2';
+        messageBuffer[buf_end] = '1';
         buf_end++;
         // ESP_DRAM_LOGI(MORSE_TAG, "2 in buffer");
     }
     else
     {
         // 0 if button held for less than press_length time
-        messageBuffer[buf_end] = '1';
+        messageBuffer[buf_end] = '0';
         buf_end++;
         // ESP_DRAM_LOGI(MORSE_TAG, "1 in buffer");
     }
@@ -114,8 +114,8 @@ static void IRAM_ATTR gpio_send_event_handler(void *arg)
     // end each message with 2 twos
     if ((buf_end != 0) && (!input_in_progress))
     {
-        messageBuffer[buf_end++] = '3';
-        messageBuffer[buf_end++] = '3';
+        messageBuffer[buf_end++] = '2';
+        messageBuffer[buf_end++] = '2';
     }
 
     for (i = 0; i < buf_end; i++)
