@@ -37,7 +37,7 @@ static char charMessageBuffer[255];
 #define GPIO_INPUT_PIN_SEL ((1ULL << GPIO_INPUT_IO_START) | (1ULL << GPIO_INPUT_IO_END))
 #define ESP_INTR_FLAG_DEFAULT 0
 #define MORSE_TAG "Morse code tag"
-#define DEBOUNCE_DELAY 35000 // time required between consecutive inputs to prevent debounce issues
+#define DEBOUNCE_DELAY 50000 // time required between consecutive inputs to prevent debounce issues
 
 char getLetterMorseCode(int decimalValue)
 {
@@ -168,68 +168,62 @@ void debugPrintBuffer()
 
     for (i = 0; i <= charBufEnd; i++)
     {
-        ESP_DRAM_LOGI(MORSE_TAG, "character buffer[%d]: %d", i, messageBuffer[charBufEnd]);
+        ESP_DRAM_LOGI(MORSE_TAG, "character buffer[%d]: %c", i, charMessageBuffer[i]);
     }
-
 }
 
 void encodeMorseCode()
 {
-    int letterIndex = 0;  // curent position
-    int startIndex = 0;   // index of last 2
-    int charDecicmal = 1; // to add leading 1 to binary value
+    int startIndex = 0;  // index of last 2
+    int charDecimal = 1; // to add leading 1 to binary value
 
     int i = 0;
 
     do // checks for end condition "2 2"
     {
 
-        do // decodes into decimal value of morse code w leading 1
+        do //decode each letter until the first 2 is reached
         {
-            //how does it decide to keep decoding letters if the while condition is never fufilled past the buffer end 
-            charDecicmal = (charDecicmal << 1) + messageBuffer[i + startIndex];
+            // decodes into decimal value of morse code w leading 1
+            charDecimal = (charDecimal << 1) + messageBuffer[i + startIndex];
 
-            ESP_DRAM_LOGI(MORSE_TAG, "Character decimal: %d loop# %d", charDecicmal, i);
-            ESP_DRAM_LOGI(MORSE_TAG, "index: %d", i + startIndex);
+            // ESP_DRAM_LOGI(MORSE_TAG, "Character decimal: %d loop# %d", charDecimal, i);
+            // ESP_DRAM_LOGI(MORSE_TAG, "index: %d", i + startIndex);
 
             i++;
 
-        } while (messageBuffer[i] != 2);
+        } while (messageBuffer[i + startIndex] != 2);
 
-        // sets value of 2 found to the start index of the next letter
-        ESP_DRAM_LOGI(MORSE_TAG, "Character decimal: %d", charDecicmal);
+        // // sets inex of 2 value found to the start index for the next letter
+        // ESP_DRAM_LOGI(MORSE_TAG, "Character decimal: %d", charDecimal);
 
         startIndex = startIndex + i + 1;
 
-        charMessageBuffer[letterIndex] = getLetterMorseCode(charDecicmal);
+        charMessageBuffer[charBufEnd] = getLetterMorseCode(charDecimal);
 
-        ESP_DRAM_LOGI(MORSE_TAG, "Character decoded: %c", getLetterMorseCode(charDecicmal));
+        ESP_DRAM_LOGI(MORSE_TAG, "Character decoded: %c", getLetterMorseCode(charDecimal));
 
         // set to zero for next letter
         i = 0;
-        charDecicmal = 1;
-        letterIndex++;
+        charDecimal = 1;
         charBufEnd++;
 
-        ESP_DRAM_LOGI(MORSE_TAG, "value at buffer start index :%d", messageBuffer[startIndex]);
+        // ESP_DRAM_LOGI(MORSE_TAG, "value at buffer start index :%d", messageBuffer[startIndex]);
 
     } while (messageBuffer[startIndex] != 2);
-
-
-    
-
 }
 
 static void IRAM_ATTR gpio_start_event_handler(void *arg)
 {
     // ignore false readings. Wait at least 20ms.
-    if ((esp_timer_get_time() - start_time) < DEBOUNCE_DELAY)
+    if (((esp_timer_get_time() - start_time) < DEBOUNCE_DELAY) || input_in_progress)
     {
         return;
     }
 
+    input_in_progress = 1; // to prevent multipress
+
     start_time = esp_timer_get_time(); // store time of last event
-    input_in_progress = 1;             // to prevent multipress
 
     if ((start_time - time_last_end_event > SPACE_LENGTH) && (buf_end != 0))
     {
@@ -237,8 +231,6 @@ static void IRAM_ATTR gpio_start_event_handler(void *arg)
         buf_end++;
         ESP_DRAM_LOGI(MORSE_TAG, "2 placed in buffer in start event");
     }
-
-    
 }
 
 static void IRAM_ATTR gpio_end_event_handler(void *arg)
@@ -296,22 +288,17 @@ static void IRAM_ATTR gpio_send_event_handler(void *arg)
     // end each message with 2 twos
     if ((buf_end != 0) && (!input_in_progress))
     {
-        messageBuffer[buf_end-1] = 2;
+        messageBuffer[buf_end++] = 2;
         messageBuffer[buf_end] = 2;
-    }
 
-    debugPrintBuffer();
+        encodeMorseCode();
 
-    encodeMorseCode();
+        ESP_DRAM_LOGI(MORSE_TAG, "character buffer end: %d", charBufEnd);
 
-    // for (i = 0; i < charBufEnd; i++)
-    // {
-    //     ESP_DRAM_LOGI(MORSE_TAG, "buffer[%d]: %c", i, charMessageBuffer[i]);
-    // }
-
-    for (i = 0; i <= buf_end; i++)
-    {
-        ESP_DRAM_LOGI(MORSE_TAG, "buffer[%d]: %d", i, messageBuffer[i]);
+        for (i = 0; i < charBufEnd; i++)
+        {
+            ESP_DRAM_LOGI(MORSE_TAG, "character buffer[%d]: %c", i, charMessageBuffer[i]);
+        }
     }
 
     charBufEnd = 0;
