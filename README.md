@@ -5,13 +5,21 @@ This project will be using the an ESP32 development board and the [ESP-IDF](http
 
 
 ## How to use
-Currently the hardware is set up as follows:
+
+
+### Hardware Setup
 
 
 
+### What to flash and how
+
+There are currently two differnet files to be flashed, one for the client and one for the server. They are in their directories labelled ... and ... respectively. Simply use the flashing tool in the ESP-IDF toolkit and flash each dev board and they should pair with one another and begin communications.
 
 
-GPIO 4 and 5 are both connected to one of the buttons they trigger an interrupt on the negative edge and positive edge of the gpio signal respectively. This button measures the time between events using the RTC on the development board and decides based on a global value which is currently set to one second. If the time is above one second it fills the message buffer with a 1 and if it is below it is filled with a 0. After a letter is written there must be no input for two seconds then the next letter can be written.
+
+### Using the buttons
+
+GPIO 4 and 5 are both connected to one of the buttons they trigger an interrupt on the negative edge and positive edge of the gpio signal respectively. This button measures the time between events using the RTC on the development board and compares to a global value which is currently set to one second (1000000 microseconds). If the time between events is above one second it fills the message buffer with a 1 and if it is below it is filled with a 0. After a character is written there must be no input for two seconds then the next character can be written.
 
 Once the message is completed use the other button which is tied to GPIO 23 which encodes the message the buffer and saves it to a character buffer to speed up transmission by sending the ecoded bytes going from an average of 3.6 bytes per character to 1 byte which effectively less than one third of the original message size.
 
