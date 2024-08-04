@@ -9,7 +9,7 @@ This project will be using the an ESP32 development board and the [ESP-IDF](http
 
 ### Hardware Setup
 
-![Hardware Setup](Images/ESP_MorseCode.png)
+![Hardware Setup](Images/ESP-32_MorseCode.png)
 
 
 ### What to flash and how
