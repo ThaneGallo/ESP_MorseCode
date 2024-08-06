@@ -1,7 +1,7 @@
 {
     "version":            "1.1",
     "project_name":       "gatt_server_demos",
-    "project_version":    "6cefe7f-dirty",
+    "project_version":    "8b23008-dirty",
     "project_path":       "C:/Users/thane/projects/ESP_MorseCode/Gatt_server/gatt_server",
     "idf_path":           "C:/Users/thane/esp/v5.2.2/esp-idf",
     "build_dir":          "C:/Users/thane/projects/ESP_MorseCode/Gatt_server/gatt_server/build",
