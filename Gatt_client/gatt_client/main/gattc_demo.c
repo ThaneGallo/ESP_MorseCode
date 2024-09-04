@@ -1,4 +1,4 @@
-﻿/*modified 8/30/2024*/
+﻿/*modified 9/4/2024*/
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -23,7 +23,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-//gpio
+// gpio
 static uint32_t buf_end = 0;
 static uint32_t charBufEnd = 0;
 
@@ -51,14 +51,29 @@ static char charMessageBuffer[255];
 #define MORSE_TAG "Morse code tag"
 #define DEBOUNCE_DELAY 50000 // time required between consecutive inputs to prevent debounce issues
 
+// ble address structs and pointers
+static const ble_addr_t serverAddr = {
+    .type = BLE_ADDR_RANDOM, // Example type value
+    .val = {0xDE, 0xCA, 0xFB, 0xEE, 0xFE, 0xD0}};
 
-//ble
-static esp_bd_addr_t serverAddr[6] = {{0xDE, 0xCA, 0xFB, 0xEE, 0xFE, 0xD0}};
-static esp_bd_addr_t clientAddr[6] = {{0xCA, 0xFF, 0xED, 0xBE, 0xEE, 0xEF}};
+static const ble_addr_t clientAddr = {
+    .type = BLE_ADDR_RANDOM, // Example type value
+    .val = {0xCA, 0xFF, 0xED, 0xBE, 0xEE, 0xEF}};
 
+const uint8_t *clientAddressVal = &clientAddr.val;
+uint8_t ble_addr_type;
 
+// static const ble_addr_t *serverPtr = &serverAddr;
+// static const ble_addr_t *clientPtr = &clientAddr;
 
+static struct ble_gap_conn_desc *clientDesc = NULL;
 
+// UUID macros
+#define SERVICE_UUID 0xCAFE
+#define READ_UUID 0xCAFF
+#define WRITE_UUID 0xDECA
+
+// converts decimal value of Morse code to char
 char getLetterMorseCode(int decimalValue)
 {
     switch (decimalValue)
@@ -202,7 +217,7 @@ void encodeMorseCode()
     do // checks for end condition "2 2"
     {
 
-        do //decode each letter until the first 2 is reached
+        do // decode each letter until the first 2 is reached
         {
             // decodes into decimal value of morse code w leading 1
             charDecimal = (charDecimal << 1) + messageBuffer[i + startIndex];
@@ -340,22 +355,51 @@ static void gpio_task_example(void *arg)
     }
 }
 
-void ble_cb_handler(struct ble_gap_event event, void *arg){
-    
-    switch(event){
-
-        case BLE_GAP_EVENT_DISC_COMPLETE:
-
-
-
-
-
-
+static int scan_cb(struct ble_gap_event *event, void *arg)
+{
+    switch (event->type)
+    {
+    case BLE_GAP_EVENT_DISC:
+        // Handle device discovery
+        ESP_LOGI(MORSE_TAG, "Device found: %x", event->disc.addr.val[0]);
+        // Connect to the device if it matches your criteria
+        // Replace `event->disc.addr` with the address of the device you want to connect to
+        ble_gap_connect(BLE_OWN_ADDR_PUBLIC, &serverAddr, 10000, NULL, NULL, NULL);
+        break;
+    case BLE_GAP_EVENT_DISC_COMPLETE:
+        ESP_LOGI(MORSE_TAG, "Discover event complete");
+        break;
+    default:
+        ESP_LOGI(MORSE_TAG, "Called Event without handler: %u", event->type);
+        break;
     }
+
+    return 0;
 }
 
+//     // literally what the fuck is the struct supposed to be
+//     static void service_cb(uint16_t conn_handle,
+//                            const struct ble_gatt_error *error,
+//                            const struct ble_gatt_chr *chr, void *arg)
+// {
+//     switch (event->type)
+//     {
+//     case BLE_GATTC_EVENT_READ_RSP:
+//         ESP_LOGI(MORSE_TAG, "GATTC Read");
+//         break;
 
-void gpio_setup(){
+//     case BLE_GATTC_EVENT_WRITE_RSP:
+//         ESP_LOGI(MORSE_TAG, "GATTC Write");
+//         break;
+
+//     default:
+//         ESP_LOGI(MORSE_TAG, "Called Event without handler: %u", event->type);
+//         break;
+//     }
+// }
+
+void gpio_setup()
+{
 
     // zero-initialize the config structure.
     gpio_config_t io_conf = {};
@@ -395,69 +439,128 @@ void gpio_setup(){
     gpio_isr_handler_add(GPIO_INPUT_IO_END, gpio_end_event_handler, (void *)GPIO_INPUT_IO_END);
 
     gpio_isr_handler_add(GPIO_INPUT_IO_SEND, gpio_send_event_handler, (void *)GPIO_INPUT_IO_SEND);
-
-
 }
 
-void ble_client_setup(){
-    bool staticAddress = 0;
-    uint8_t err;
-
-    //init
-    nvs_flash_init(); // sets up flash memory 
-    nimble_port_init();
-    esp_nimble_hci_init();
-
-
-    //creates and sets random address
-    // err = ble_hs_id_gen_rnd(staticAddress, );
-    // if(err != 0){
-    //     ESP_LOGI(MORSE_TAG, "Random Address Creation Failed");
-    // }
-
-    //sets rand client address to array above
-    err = ble_hs_id_set_rnd(clientAddr);
-    if(err != 0){
-        ESP_LOGI(MORSE_TAG, "Random Address Creation Failed");
-    }
-
-    //doesnt connect to peer
-    ble_gap_conn_find_by_addr(serverAddr);
-
-    ble_gap_disc(BLE_ADDR_TYPE_RANDOM, , NULL, );
-
-    // when completed BLE_GAP_EVENT_DISC_COMPLETE is triggered
-
-    //dont exist
-    ble_svc_gap_init();
-    ble_svc_gatt_init();
-    
-    //config
-    ble_gatts_count_cfg();//??
-    ble_gatts_add_svcs();
-
-    //discovers primary service by uuid
-    ble_gattc_disc_svc_by_uuid();
-
-
-    nimble_port_freertos_init();
-   
-}
-
-void app_main(void)
+void host_task(void *param)
 {
-    
-    gpio_setup();
-    ble_setup();
-
-
-
-
-    //just ticks tbh
+    nimble_port_run();
+    // just ticks tbh
     int cnt = 0;
     while (1)
     {
         printf("cnt: %d\n", cnt++);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
+    return;
+}
+
+void ble_app_on_sync(void)
+{
+    uint8_t err;
+    ble_hs_id_infer_auto(0, &ble_addr_type); // Determines the best address type automatically
+
+    // err = ble_gap_wl_set(clientPtr, white_list_count); // sets white list for connection to other device
+    // if (err != 0)
+    // {
+    //     ESP_LOGI(GATTS_TAG, "BLE gap set whitelist failed");
+    // }
+
+    // from cooper's video
+    struct ble_gap_disc_params disc_params;
+    disc_params.filter_duplicates = 1;
+    disc_params.passive = 0;
+    disc_params.itvl = 0;
+    disc_params.window = 0;
+    disc_params.filter_policy = 0;
+    disc_params.limited = 0;
+
+    err = ble_gap_disc(ble_addr_type, 10000, &disc_params, scan_cb, NULL);
+    if (err != 0)
+    {
+        ESP_LOGI(MORSE_TAG, "BLE GAP Discovery Failed");
+    }
+
+    ESP_LOGI(MORSE_TAG, "after ble_gap_disc");
+
+   
+}
+
+void ble_client_setup()
+{
+    uint8_t err;
+
+    // init
+    ESP_ERROR_CHECK(nvs_flash_init()); // sets up flash memory
+    // ESP_ERROR_CHECK(esp_nimble_hci_init()); // dies here
+    ESP_ERROR_CHECK(nimble_port_init());
+
+    err = ble_svc_gap_device_name_set("BLE-Scan-Client"); // 4 - Set device name characteristic
+    if (err != 0)
+    {
+        ESP_LOGI(MORSE_TAG, "GAP device name set");
+    }
+
+    ble_svc_gap_init();
+   
+    ble_hs_cfg.sync_cb = ble_app_on_sync; 
+
+
+    ESP_LOGI(MORSE_TAG, "after init s");
+
+    // creates and sets random address
+    //  err = ble_hs_id_gen_rnd(staticAddress, );
+    //  if(err != 0){
+    //      ESP_LOGI(MORSE_TAG, "Random Address Creation Failed");
+    //  }
+
+    err = ble_hs_id_infer_auto(0, &ble_addr_type); // Determines the best address type automatically
+    if (err != 0)
+    {
+        ESP_LOGI(MORSE_TAG, "Address infer auto Failed");
+    }
+
+    // // sets rand client address to array above
+    // err = ble_hs_id_set_rnd(clientAddressVal);
+    // if (err != 0)
+    // {
+    //     ESP_LOGI(MORSE_TAG, "Random Address Set Failed");
+    // }
+
+    // ESP_LOGI(MORSE_TAG, "after ble_hs_set_rnd");
+
+    // // doesnt connect to peer
+    // err = ble_gap_conn_find_by_addr(&serverAddr, clientDesc);
+    // if (err != 0)
+    // {
+    //     ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address Failed");
+    // }
+
+    // ESP_LOGI(MORSE_TAG, "after ble_gap_conn_find_addr");
+
+    // BLE_HS_FOREVER
+
+    // when completed BLE_GAP_EVENT_DISC_COMPLETE is triggered
+
+    // // discovers primary service by uuid does it need to be discovered?
+    // err = ble_gattc_disc_svc_by_uuid(clientDesc->conn_handle, SERVICE_UUID, service_cb, NULL);
+    // if (err != 0)
+    // {
+    //     ESP_LOGI(MORSE_TAG, "Discover Service Failed");
+    // }
+
+    // ble_gatts_find_svc(const ble_uuid_t *uuid, uint16_t *out_handle);
+
+    // // ble_gatt_svc contains start and end handle
+
+    // // forgot where start and end handle exist ;(
+    // ble_gattc_disc_chrs_by_uuid(clientDesc->conn_handle, uint16_t start_handle, uint16_t end_handle, WRITE_UUID, ble_gatt_chr_fn * cb, void *cb_arg)
+
+    // starts first task
+    nimble_port_freertos_init(host_task);
+}
+
+void app_main(void)
+{
+    // gpio_setup();
+    ble_client_setup();
 }
