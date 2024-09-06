@@ -1,22 +1,24 @@
-﻿/*modified 9/4/2024*/
+﻿/*modified 9/6/2024*/
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
+
 #include "esp_timer.h"
 #include "esp_log.h"
-#include "driver/gpio.h"
 #include "esp_bt.h"
 #include "esp_event.h"
+#include "esp_nimble_hci.h"
+#include "sdkconfig.h"
+
+#include "driver/gpio.h"
+#include "host/ble_hs.h"
 #include "nvs.h"
 #include "nvs_flash.h"
-#include "esp_nimble_hci.h"
 #include "nimble/nimble_port.h"
 #include "nimble/nimble_port_freertos.h"
-#include "host/ble_hs.h"
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
-#include "sdkconfig.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -24,29 +26,26 @@
 #include <stdio.h>
 
 // gpio
-static uint32_t buf_end = 0;
+static uint32_t mess_buf_end = 0;
 static uint32_t charBufEnd = 0;
 
-static int64_t start_time;
-static int64_t end_time;
-static int64_t time_last_end_event;
+static int64_t start_time; // time of last valid start 
+static int64_t time_last_end_event; // time of last valid end
 static bool input_in_progress;
 
-#define PRESS_LENGTH 1000000 // 1 second in microseconds
-#define SPACE_LENGTH 2000000 // 2 seconds in microseconds
-
-static QueueHandle_t gpio_evt_queue = NULL;
+#define PRESS_LENGTH 1000000 // Hold-time required for dash '-' input. 1 second in microseconds
+#define SPACE_LENGTH 2000000 // Time required between inputs for new character start. 2 seconds in microseconds
 
 // START, END, AND SEND EVENTS
 #define GPIO_INPUT_IO_START 4 // start event sense
 #define GPIO_INPUT_IO_END 5   // end event sense
 #define GPIO_INPUT_IO_SEND 23 // send event sense
 
-#define BUFFER_LENGTH 2048
-static uint8_t messageBuffer[2048];
-static char charMessageBuffer[255];
+#define MESS_BUFFER_LENGTH 2048
+#define CHAR_BUFFER_LENGTH 256
+static uint8_t messageBuffer[MESS_BUFFER_LENGTH];
+static char charMessageBuffer[CHAR_BUFFER_LENGTH];
 
-#define GPIO_INPUT_PIN_SEL ((1ULL << GPIO_INPUT_IO_START) | (1ULL << GPIO_INPUT_IO_END))
 #define ESP_INTR_FLAG_DEFAULT 0
 #define MORSE_TAG "Morse code tag"
 #define DEBOUNCE_DELAY 50000 // time required between consecutive inputs to prevent debounce issues
@@ -54,15 +53,16 @@ static char charMessageBuffer[255];
 // ble address structs and pointers
 static const ble_addr_t serverAddr = {
     .type = BLE_ADDR_RANDOM, // Example type value
-    .val = {0xDE, 0xCA, 0xFB, 0xEE, 0xFE, 0xD0}};
+    .val = {0xDE, 0xCA, 0xFB, 0xEE, 0xFE, 0xD0}
+};
 
-static const ble_addr_t clientAddr = {
-    .type = BLE_ADDR_RANDOM, // Example type value
-    .val = {0xCA, 0xFF, 0xED, 0xBE, 0xEE, 0xEF}};
+// static const ble_addr_t clientAddr = {
+//     .type = BLE_ADDR_RANDOM, // Example type value
+//     .val = {0xCA, 0xFF, 0xED, 0xBE, 0xEE, 0xEF}
+// };
 
-const uint8_t *clientAddressVal = &clientAddr.val;
 uint8_t ble_addr_type;
-
+//const uint8_t *clientAddressVal = &clientAddr.val;
 // static const ble_addr_t *serverPtr = &serverAddr;
 // static const ble_addr_t *clientPtr = &clientAddr;
 
@@ -73,9 +73,20 @@ static struct ble_gap_conn_desc *clientDesc = NULL;
 #define READ_UUID 0xCAFF
 #define WRITE_UUID 0xDECA
 
-// converts decimal value of Morse code to char
+/**
+ * Converts decimal value of Morse code to char.
+ * @param decimalValue the decimal interpretation of the morse input. Example 'a' = .- = 5.
+ *  Note that there is a leading 1 on the binary input of decimalValue.
+ * @return the character corresponding to the morse code decimalValue.
+ */
 char getLetterMorseCode(int decimalValue)
 {
+    /* 
+    decimalValue has a leading 1 to determine the start of the morse input.
+        for example, A: .- , would directly translate to just 01, but to remove 
+        issues of .- being different from ..-, we have added in a leading 1.
+    Hence, A: .- = 101 = 5.
+    */
     switch (decimalValue)
     {
     case 5:
@@ -192,11 +203,14 @@ char getLetterMorseCode(int decimalValue)
     }
 }
 
+/**
+ * Print the contents of both the message and character buffers into the terminal.
+ */
 void debugPrintBuffer()
 {
     int i;
 
-    for (i = 0; i <= buf_end; i++)
+    for (i = 0; i <= mess_buf_end; i++)
     {
         ESP_DRAM_LOGI(MORSE_TAG, "message buffer[%d]: %d", i, messageBuffer[i]);
     }
@@ -207,106 +221,93 @@ void debugPrintBuffer()
     }
 }
 
+/**
+ * Converts messageBuffer values into corresponding characterBuffer values.
+ */
 void encodeMorseCode()
 {
-    int startIndex = 0;  // index of last 2
-    int charDecimal = 1; // to add leading 1 to binary value
+    /*
+    - For each bit-letter-combo in the messageBuffer array, 
+    - grab the bits for each letter individually, stopping when you reach the '2' at the end of the input
+    - translate that into the corresponding character using getLetterMorseCode()
+    - save that character into the character buffer
+    */
 
-    int i = 0;
+    int currentIndex = 0;  // index to iterate over
 
-    do // checks for end condition "2 2"
-    {
+    // check for end condition, the 2nd '2' after a letter. "letter-bits ... 2 2"
+    while (messageBuffer[currentIndex] != 2) {
+        int charDecimal = 1; // to add leading 1 to binary value
 
-        do // decode each letter until the first 2 is reached
-        {
+        // decode each letter until the first 2 is reached.
+        while (messageBuffer[currentIndex] != 2) {
             // decodes into decimal value of morse code w leading 1
-            charDecimal = (charDecimal << 1) + messageBuffer[i + startIndex];
-
-            // ESP_DRAM_LOGI(MORSE_TAG, "Character decimal: %d loop# %d", charDecimal, i);
-            // ESP_DRAM_LOGI(MORSE_TAG, "index: %d", i + startIndex);
-
-            i++;
-
-        } while (messageBuffer[i + startIndex] != 2);
-
-        // // sets inex of 2 value found to the start index for the next letter
-        // ESP_DRAM_LOGI(MORSE_TAG, "Character decimal: %d", charDecimal);
-
-        startIndex = startIndex + i + 1;
-
+            charDecimal = (charDecimal << 1) + messageBuffer[currentIndex];
+            currentIndex++;
+        }
+        // currentIndex set to position after the end of a letter, AKA just after the '2' that marks the end of the letter-bits.
+        currentIndex++;
+        
+        // translate and store the corresponding character into the character buffer
         charMessageBuffer[charBufEnd] = getLetterMorseCode(charDecimal);
-
-        ESP_DRAM_LOGI(MORSE_TAG, "Character decoded: %c", getLetterMorseCode(charDecimal));
-
-        // set to zero for next letter
-        i = 0;
-        charDecimal = 1;
         charBufEnd++;
 
-        // ESP_DRAM_LOGI(MORSE_TAG, "value at buffer start index :%d", messageBuffer[startIndex]);
-
-    } while (messageBuffer[startIndex] != 2);
+        ESP_DRAM_LOGI(MORSE_TAG, "Character decoded: %c", getLetterMorseCode(charDecimal));
+        // ESP_DRAM_LOGI(MORSE_TAG, "value at buffer start index :%d", messageBuffer[startIndex]); // what int is at the start of the next loop
+    }
 }
 
 static void IRAM_ATTR gpio_start_event_handler(void *arg)
 {
-    // ignore false readings. Wait at least 20ms.
-    if (((esp_timer_get_time() - start_time) < DEBOUNCE_DELAY) || input_in_progress)
+    // ignore false readings. Wait long enough for at least debounce delay.
+    // and never allow for writing beyond the message buffer size, leaving room for the transmission end condition "2 2"
+    if (((esp_timer_get_time() - start_time) < DEBOUNCE_DELAY) || input_in_progress || (mess_buf_end >= MESS_BUFFER_LENGTH - 2))
     {
         return;
     }
-
     input_in_progress = 1; // to prevent multipress
-
+    
     start_time = esp_timer_get_time(); // store time of last event
 
-    if ((start_time - time_last_end_event > SPACE_LENGTH) && (buf_end != 0))
+    if ((start_time - time_last_end_event > SPACE_LENGTH) && (mess_buf_end != 0))
     {
-        messageBuffer[buf_end] = 2;
-        buf_end++;
+        messageBuffer[mess_buf_end] = 2;
+        mess_buf_end++;
         ESP_DRAM_LOGI(MORSE_TAG, "2 placed in buffer in start event");
     }
 }
 
 static void IRAM_ATTR gpio_end_event_handler(void *arg)
 {
-    // ignore false readings. Wait at least 20ms.
-    if ((esp_timer_get_time() - end_time) < DEBOUNCE_DELAY)
+    // ignore false readings. Wait long enough for at least debounce delay. Ensure this is called only after a valid start press.
+    if (((esp_timer_get_time() - time_last_end_event) < DEBOUNCE_DELAY) || !input_in_progress) 
     {
         return;
     }
 
-    end_time = esp_timer_get_time(); // store time of last event
-    time_last_end_event = end_time;
+    time_last_end_event = esp_timer_get_time(); // store time of last event
 
-    // ESP_DRAM_LOGI(MORSE_TAG, "end time: %d", end_time);
+    // ESP_DRAM_LOGI(MORSE_TAG, "last end time: %d", time_last_end_event);
+    // ESP_DRAM_LOGI(MORSE_TAG, "time elapsed: %d", time_last_end_event - start_time);
 
-    // ESP_DRAM_LOGI(MORSE_TAG, "time elapsed: %d", end_time - start_time);
-
-    // handles out of bounds "errors"
-    if (buf_end >= BUFFER_LENGTH - 2)
-    {
-        return;
-    }
-
-    if (PRESS_LENGTH < (end_time - start_time))
+    if (PRESS_LENGTH < (time_last_end_event - start_time))
     {
         // must hold button for at least press_length to get a 1
-        messageBuffer[buf_end] = 1;
-        buf_end++;
+        messageBuffer[mess_buf_end] = 1;
+        mess_buf_end++;
         // ESP_DRAM_LOGI(MORSE_TAG, "2 in buffer");
     }
     else
     {
         // 0 if button held for less than press_length time
-        messageBuffer[buf_end] = 0;
-        buf_end++;
+        messageBuffer[mess_buf_end] = 0;
+        mess_buf_end++;
         // ESP_DRAM_LOGI(MORSE_TAG, "1 in buffer");
     }
 
     input_in_progress = 0;
 
-    ESP_DRAM_LOGW(MORSE_TAG, "placed in buffer: %d", messageBuffer[buf_end - 1]);
+    ESP_DRAM_LOGW(MORSE_TAG, "placed in buffer: %d", messageBuffer[mess_buf_end - 1]);
 }
 
 static void IRAM_ATTR gpio_send_event_handler(void *arg)
@@ -321,10 +322,10 @@ static void IRAM_ATTR gpio_send_event_handler(void *arg)
     lMillis = esp_timer_get_time();
 
     // end each message with 2 twos
-    if ((buf_end != 0) && (!input_in_progress))
+    if (mess_buf_end != 0)
     {
-        messageBuffer[buf_end++] = 2;
-        messageBuffer[buf_end] = 2;
+        messageBuffer[mess_buf_end++] = 2;
+        messageBuffer[mess_buf_end] = 2;
 
         encodeMorseCode();
 
@@ -337,22 +338,7 @@ static void IRAM_ATTR gpio_send_event_handler(void *arg)
     }
 
     charBufEnd = 0;
-    buf_end = 0;
-}
-
-static void gpio_task_example(void *arg)
-{
-    uint32_t io_num;
-
-    printf("in gpio task");
-
-    for (;;)
-    {                                                              // ; = infinite loop
-        if (xQueueReceive(gpio_evt_queue, &io_num, portMAX_DELAY)) // if the queue is recieved a task
-        {
-            printf("GPIO[%" PRIu32 "] intr, val: %d\n", io_num, gpio_get_level(io_num));
-        }
-    }
+    mess_buf_end = 0;
 }
 
 static int scan_cb(struct ble_gap_event *event, void *arg)
@@ -406,7 +392,7 @@ void gpio_setup()
 
     // interrupt of falling edge
     io_conf.intr_type = GPIO_INTR_NEGEDGE;
-    // bit mask of the pins, use GPIO4/5 here
+    // bit mask of the pins, use GPIO 4 & 23 here
     io_conf.pin_bit_mask = (1ULL << GPIO_INPUT_IO_START) | (1ULL << GPIO_INPUT_IO_SEND);
     // set as input mode
     io_conf.mode = GPIO_MODE_INPUT;
@@ -416,7 +402,7 @@ void gpio_setup()
 
     // interrupt of falling edge
     io_conf.intr_type = GPIO_INTR_POSEDGE;
-    // bit mask of the pins, use GPIO4/5 here
+    // bit mask of the pins, use GPIO 5 here
     io_conf.pin_bit_mask = (1ULL << GPIO_INPUT_IO_END);
     // set as input mode
     io_conf.mode = GPIO_MODE_INPUT;
@@ -424,11 +410,6 @@ void gpio_setup()
     io_conf.pull_up_en = 1;
     gpio_config(&io_conf);
 
-    // makes event queue
-    // create a queue to handle gpio event from isr
-    gpio_evt_queue = xQueueCreate(10, sizeof(uint32_t));
-
-    xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);
 
     // install gpio isr service
     gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
@@ -520,7 +501,7 @@ void ble_client_setup()
     }
 
     // // sets rand client address to array above
-    // err = ble_hs_id_set_rnd(clientAddressVal);
+    //err = ble_hs_id_set_rnd(clientAddressVal);
     // if (err != 0)
     // {
     //     ESP_LOGI(MORSE_TAG, "Random Address Set Failed");
@@ -561,6 +542,6 @@ void ble_client_setup()
 
 void app_main(void)
 {
-    // gpio_setup();
+    //gpio_setup();
     ble_client_setup();
 }
