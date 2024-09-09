@@ -1,4 +1,4 @@
-﻿/*modified 9/6/2024*/
+﻿/*modified 9/9/2024*/
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -24,6 +24,8 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdio.h>
+
+static uint8_t white_list_count = 1;
 
 // gpio
 static uint32_t mess_buf_end = 0;
@@ -56,15 +58,15 @@ static const ble_addr_t serverAddr = {
     .val = {0xDE, 0xCA, 0xFB, 0xEE, 0xFE, 0xD0}
 };
 
-// static const ble_addr_t clientAddr = {
-//     .type = BLE_ADDR_RANDOM, // Example type value
-//     .val = {0xCA, 0xFF, 0xED, 0xBE, 0xEE, 0xEF}
-// };
+static const ble_addr_t clientAddr = {
+    .type = BLE_ADDR_RANDOM, // Example type value
+    .val = {0xCA, 0xFF, 0xED, 0xBE, 0xEE, 0xEF}
+};
 
 uint8_t ble_addr_type;
 //const uint8_t *clientAddressVal = &clientAddr.val;
-// static const ble_addr_t *serverPtr = &serverAddr;
-// static const ble_addr_t *clientPtr = &clientAddr;
+static const ble_addr_t *serverPtr = &serverAddr;
+static const ble_addr_t *clientPtr = &clientAddr;
 
 static struct ble_gap_conn_desc *clientDesc = NULL;
 
@@ -347,10 +349,28 @@ static int scan_cb(struct ble_gap_event *event, void *arg)
     {
     case BLE_GAP_EVENT_DISC:
         // Handle device discovery
-        ESP_LOGI(MORSE_TAG, "Device found: %x", event->disc.addr.val[0]);
+        ESP_LOGI(MORSE_TAG, "Device found: %x%x%x%x%x%x", event->disc.addr.val[0], event->disc.addr.val[1], 
+            event->disc.addr.val[2], event->disc.addr.val[3], event->disc.addr.val[4], event->disc.addr.val[5]);
         // Connect to the device if it matches your criteria
         // Replace `event->disc.addr` with the address of the device you want to connect to
-        ble_gap_connect(BLE_OWN_ADDR_PUBLIC, &serverAddr, 10000, NULL, NULL, NULL);
+        uint8_t err;
+        err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, serverPtr, 10000, NULL, NULL, NULL);
+        switch (err) {
+            case 0:
+                ESP_LOGI(MORSE_TAG, "ble_gap_connect successful");
+                break;
+            case BLE_HS_EALREADY:
+                ESP_LOGI(MORSE_TAG, "ble_gap_connect connection already in progress");
+                break;
+            case BLE_HS_EBUSY:
+                ESP_LOGI(MORSE_TAG, "ble_gap_connect connection not possible because scanning is in progress");
+                break;
+            case BLE_HS_EDONE:
+                ESP_LOGI(MORSE_TAG, "ble_gap_connect specified peer is already connected");
+                break;
+            default:
+                ESP_LOGI(MORSE_TAG, "ble_gap_connect other nonzero on error: %u", err);
+        }
         break;
     case BLE_GAP_EVENT_DISC_COMPLETE:
         ESP_LOGI(MORSE_TAG, "Discover event complete");
@@ -438,13 +458,23 @@ void host_task(void *param)
 void ble_app_on_sync(void)
 {
     uint8_t err;
-    ble_hs_id_infer_auto(0, &ble_addr_type); // Determines the best address type automatically
+    //ble_hs_id_infer_auto(0, &ble_addr_type); // Determines the best address type automatically
 
-    // err = ble_gap_wl_set(clientPtr, white_list_count); // sets white list for connection to other device
-    // if (err != 0)
-    // {
-    //     ESP_LOGI(GATTS_TAG, "BLE gap set whitelist failed");
-    // }
+    err = ble_hs_id_set_rnd(clientPtr->val); 
+    if (err != 0)
+    {
+        ESP_LOGI(MORSE_TAG, "BLE gap set random address failed %d", err);
+    }
+
+    ESP_LOGI(MORSE_TAG, "after ble_hs_set_rnd");
+
+    err = ble_gap_wl_set(serverPtr, white_list_count); // sets white list for connection to other device
+    if (err != 0)
+    {
+        ESP_LOGI(MORSE_TAG, "BLE gap set whitelist failed");
+    }
+
+    ESP_LOGI(MORSE_TAG, "after ble_gap_wl_set");
 
     // from cooper's video
     struct ble_gap_disc_params disc_params;
@@ -452,13 +482,14 @@ void ble_app_on_sync(void)
     disc_params.passive = 0;
     disc_params.itvl = 0;
     disc_params.window = 0;
-    disc_params.filter_policy = 0;
+    // disc_params.filter_policy = BLE_HCI_SCAN_FILT_USE_WL_INITA;
+     disc_params.filter_policy = BLE_HCI_SCAN_FILT_NO_WL;
     disc_params.limited = 0;
 
     err = ble_gap_disc(ble_addr_type, 10000, &disc_params, scan_cb, NULL);
     if (err != 0)
     {
-        ESP_LOGI(MORSE_TAG, "BLE GAP Discovery Failed");
+        ESP_LOGI(MORSE_TAG, "BLE GAP Discovery Failed: %u", err);
     }
 
     ESP_LOGI(MORSE_TAG, "after ble_gap_disc");
@@ -489,32 +520,20 @@ void ble_client_setup()
     ESP_LOGI(MORSE_TAG, "after init s");
 
     // creates and sets random address
-    //  err = ble_hs_id_gen_rnd(staticAddress, );
-    //  if(err != 0){
-    //      ESP_LOGI(MORSE_TAG, "Random Address Creation Failed");
-    //  }
-
-    err = ble_hs_id_infer_auto(0, &ble_addr_type); // Determines the best address type automatically
-    if (err != 0)
-    {
-        ESP_LOGI(MORSE_TAG, "Address infer auto Failed");
-    }
-
-    // // sets rand client address to array above
-    //err = ble_hs_id_set_rnd(clientAddressVal);
+    // err = ble_hs_id_infer_auto(0, &ble_addr_type); // Determines the best address type automatically
     // if (err != 0)
     // {
-    //     ESP_LOGI(MORSE_TAG, "Random Address Set Failed");
+    //     ESP_LOGI(MORSE_TAG, "Address infer auto Failed");
     // }
 
-    // ESP_LOGI(MORSE_TAG, "after ble_hs_set_rnd");
-
+    // // ____________________________________________________________________________________
     // // doesnt connect to peer
-    // err = ble_gap_conn_find_by_addr(&serverAddr, clientDesc);
+    // err = ble_gap_conn_find_by_addr(serverPtr, clientDesc);
     // if (err != 0)
     // {
     //     ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address Failed");
     // }
+    // // ____________________________________________________________________________________
 
     // ESP_LOGI(MORSE_TAG, "after ble_gap_conn_find_addr");
 
