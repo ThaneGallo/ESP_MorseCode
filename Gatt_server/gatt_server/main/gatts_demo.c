@@ -21,7 +21,7 @@ static uint8_t white_list_count = 1;
 
 static const ble_addr_t serverAddr = {
     .type = BLE_ADDR_RANDOM, // Example type value
-    .val = {0xDE, 0xCA, 0xFB, 0xEE, 0xFE, 0xD0}
+    .val = {0xDE, 0xCA, 0xFB, 0xEE, 0xFE, 0xD2}
     };
 
 static const ble_addr_t clientAddr = {

@@ -55,20 +55,33 @@ static char charMessageBuffer[CHAR_BUFFER_LENGTH];
 // ble address structs and pointers
 static const ble_addr_t serverAddr = {
     .type = BLE_ADDR_RANDOM, // Example type value
-    .val = {0xDE, 0xCA, 0xFB, 0xEE, 0xFE, 0xD0}
+    .val = {0xDE, 0xCA, 0xFB, 0xEE, 0xFE, 0xD2}
+    //.val = {0xD0, 0xFE, 0xEE, 0xFB, 0xCA, 0xDE}
 };
 
 static const ble_addr_t clientAddr = {
     .type = BLE_ADDR_RANDOM, // Example type value
     .val = {0xCA, 0xFF, 0xED, 0xBE, 0xEE, 0xEF}
+    //.val = {0xEF, 0xEE, 0xBE, 0xED, 0xFF, 0xCA}
 };
 
-uint8_t ble_addr_type;
+static uint8_t ble_addr_type = BLE_OWN_ADDR_RANDOM;
 //const uint8_t *clientAddressVal = &clientAddr.val;
 static const ble_addr_t *serverPtr = &serverAddr;
 static const ble_addr_t *clientPtr = &clientAddr;
 
 static struct ble_gap_conn_desc *clientDesc = NULL;
+
+// DISCOVERY PARAMETERS FOR SEARCH
+static struct ble_gap_disc_params disc_params = {
+    .filter_duplicates = 1,
+    .passive = 0,
+    .itvl = 0,
+    .window = 0,
+    .filter_policy = BLE_HCI_SCAN_FILT_USE_WL_INITA,
+    //.filter_policy = BLE_HCI_SCAN_FILT_NO_WL,
+    .limited = 0
+};
 
 // UUID macros
 #define SERVICE_UUID 0xCAFE
@@ -353,11 +366,28 @@ static int scan_cb(struct ble_gap_event *event, void *arg)
             event->disc.addr.val[2], event->disc.addr.val[3], event->disc.addr.val[4], event->disc.addr.val[5]);
         // Connect to the device if it matches your criteria
         // Replace `event->disc.addr` with the address of the device you want to connect to
+        ble_gap_disc_cancel(); // cancel discovery to allow for connection
         uint8_t err;
-        err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, serverPtr, 10000, NULL, NULL, NULL);
+        
+        // err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, serverPtr, 10000, NULL, NULL, NULL);
+        err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, &event->disc.addr, 10000, NULL, NULL, NULL);
         switch (err) {
             case 0:
                 ESP_LOGI(MORSE_TAG, "ble_gap_connect successful");
+                err = ble_gap_conn_find_by_addr(&event->disc.addr, clientDesc); // setup clientDesc with the data
+                if (err != 0)
+                {
+                    ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address Failed");
+                }
+                ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address successful");
+                err = ble_gap_terminate(clientDesc->conn_handle, BLE_ERR_CONN_SPVN_TMO);
+                if (err != 0)
+                {
+                    if (err == BLE_HS_ENOTCONN) {
+                        ESP_LOGI(MORSE_TAG, "BLE Connection no connection within specified handle");
+                    }
+                    ESP_LOGI(MORSE_TAG, "BLE Connection terminate failed, error code: %d", err);
+                }
                 break;
             case BLE_HS_EALREADY:
                 ESP_LOGI(MORSE_TAG, "ble_gap_connect connection already in progress");
@@ -455,6 +485,14 @@ void host_task(void *param)
     return;
 }
 
+/**
+ * Helper method to activate gap discovery events, without needing to remember the details each time.
+ * @return uint8_t, the error code or success code of ble_gap_disc.
+ */
+uint8_t activate_gap_discovery() {
+    return ble_gap_disc(ble_addr_type, 10 * 1000, &disc_params, scan_cb, NULL);
+}
+
 void ble_app_on_sync(void)
 {
     uint8_t err;
@@ -476,17 +514,8 @@ void ble_app_on_sync(void)
 
     ESP_LOGI(MORSE_TAG, "after ble_gap_wl_set");
 
-    // from cooper's video
-    struct ble_gap_disc_params disc_params;
-    disc_params.filter_duplicates = 1;
-    disc_params.passive = 0;
-    disc_params.itvl = 0;
-    disc_params.window = 0;
-    // disc_params.filter_policy = BLE_HCI_SCAN_FILT_USE_WL_INITA;
-     disc_params.filter_policy = BLE_HCI_SCAN_FILT_NO_WL;
-    disc_params.limited = 0;
-
-    err = ble_gap_disc(ble_addr_type, 10000, &disc_params, scan_cb, NULL);
+    // use the discovery macro
+    err = activate_gap_discovery();
     if (err != 0)
     {
         ESP_LOGI(MORSE_TAG, "BLE GAP Discovery Failed: %u", err);
@@ -494,7 +523,6 @@ void ble_app_on_sync(void)
 
     ESP_LOGI(MORSE_TAG, "after ble_gap_disc");
 
-   
 }
 
 void ble_client_setup()

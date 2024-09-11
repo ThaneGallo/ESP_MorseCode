@@ -6,6 +6,8 @@
   "files.associations": {
     "task.h": "c",
     "gpio.h": "c",
-    "ble_hs.h": "c"
+    "ble_hs.h": "c",
+    "cstdint": "c",
+    "*.inc": "c"
   }
 }
