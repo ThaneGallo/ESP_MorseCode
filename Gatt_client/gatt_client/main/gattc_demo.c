@@ -225,7 +225,7 @@ char getLetterMorseCode(int decimalValue)
  */
 uint8_t* parse_one_attr(uint8_t *data, uint8_t desired_trait)
 {
-  uint8_t length;
+    uint8_t length;
     uint8_t curr_idx = 0;
     uint8_t ad_type;
     uint8_t i;
