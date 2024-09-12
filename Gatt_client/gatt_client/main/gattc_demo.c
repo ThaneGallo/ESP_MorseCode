@@ -31,7 +31,7 @@ static uint8_t white_list_count = 1;
 static uint32_t mess_buf_end = 0;
 static uint32_t charBufEnd = 0;
 
-static int64_t start_time; // time of last valid start 
+static int64_t start_time;          // time of last valid start
 static int64_t time_last_end_event; // time of last valid end
 static bool input_in_progress;
 
@@ -66,7 +66,7 @@ static const ble_addr_t clientAddr = {
 };
 
 static uint8_t ble_addr_type = BLE_OWN_ADDR_RANDOM;
-//const uint8_t *clientAddressVal = &clientAddr.val;
+// const uint8_t *clientAddressVal = &clientAddr.val;
 static const ble_addr_t *serverPtr = &serverAddr;
 static const ble_addr_t *clientPtr = &clientAddr;
 
@@ -80,8 +80,7 @@ static struct ble_gap_disc_params disc_params = {
     .window = 0,
     .filter_policy = BLE_HCI_SCAN_FILT_USE_WL_INITA,
     //.filter_policy = BLE_HCI_SCAN_FILT_NO_WL,
-    .limited = 0
-};
+    .limited = 0};
 
 // UUID macros
 #define SERVICE_UUID 0xCAFE
@@ -96,9 +95,9 @@ static struct ble_gap_disc_params disc_params = {
  */
 char getLetterMorseCode(int decimalValue)
 {
-    /* 
+    /*
     decimalValue has a leading 1 to determine the start of the morse input.
-        for example, A: .- , would directly translate to just 01, but to remove 
+        for example, A: .- , would directly translate to just 01, but to remove
         issues of .- being different from ..-, we have added in a leading 1.
     Hence, A: .- = 101 = 5.
     */
@@ -219,6 +218,49 @@ char getLetterMorseCode(int decimalValue)
 }
 
 /**
+ * parses 1 charactaristic as desired by user
+ * @param data advertiser data
+ * @param desired_trait ad label for parsed trait
+ * @return returns trait as byte array
+ */
+uint8_t* parse_one_attr(uint8_t *data, uint8_t desired_trait)
+{
+
+    uint8_t length;
+    uint8_t curr_idx;
+    uint8_t ad_type;
+    uint8_t i;
+
+    uint8_t *parsed_data;
+
+    // searches for full name ad_type
+    while (ad_type != desired_trait)
+    {
+
+        // length of parsed value
+        length = data[curr_idx];
+
+        // data type parsed value
+        ad_type = data[curr_idx + 1];
+
+        // skips length byte, ad_type byte, and data
+        curr_idx = length + ad_type + curr_idx;
+    }
+
+    // moves to start of the data
+    curr_idx -= length;
+    parsed_data = (uint8_t *)malloc(length * sizeof(uint8_t)); // allocates memory for name
+
+    for (i = 0; i < length; i++)
+    {
+        parsed_data[i] = data[curr_idx + i];
+    }
+
+    return parsed_data;
+}
+
+
+/**
  * Print the contents of both the message and character buffers into the terminal.
  */
 void debugPrintBuffer()
@@ -242,27 +284,29 @@ void debugPrintBuffer()
 void encodeMorseCode()
 {
     /*
-    - For each bit-letter-combo in the messageBuffer array, 
+    - For each bit-letter-combo in the messageBuffer array,
     - grab the bits for each letter individually, stopping when you reach the '2' at the end of the input
     - translate that into the corresponding character using getLetterMorseCode()
     - save that character into the character buffer
     */
 
-    int currentIndex = 0;  // index to iterate over
+    int currentIndex = 0; // index to iterate over
 
     // check for end condition, the 2nd '2' after a letter. "letter-bits ... 2 2"
-    while (messageBuffer[currentIndex] != 2) {
+    while (messageBuffer[currentIndex] != 2)
+    {
         int charDecimal = 1; // to add leading 1 to binary value
 
         // decode each letter until the first 2 is reached.
-        while (messageBuffer[currentIndex] != 2) {
+        while (messageBuffer[currentIndex] != 2)
+        {
             // decodes into decimal value of morse code w leading 1
             charDecimal = (charDecimal << 1) + messageBuffer[currentIndex];
             currentIndex++;
         }
         // currentIndex set to position after the end of a letter, AKA just after the '2' that marks the end of the letter-bits.
         currentIndex++;
-        
+
         // translate and store the corresponding character into the character buffer
         charMessageBuffer[charBufEnd] = getLetterMorseCode(charDecimal);
         charBufEnd++;
@@ -281,7 +325,7 @@ static void IRAM_ATTR gpio_start_event_handler(void *arg)
         return;
     }
     input_in_progress = 1; // to prevent multipress
-    
+
     start_time = esp_timer_get_time(); // store time of last event
 
     if ((start_time - time_last_end_event > SPACE_LENGTH) && (mess_buf_end != 0))
@@ -295,7 +339,7 @@ static void IRAM_ATTR gpio_start_event_handler(void *arg)
 static void IRAM_ATTR gpio_end_event_handler(void *arg)
 {
     // ignore false readings. Wait long enough for at least debounce delay. Ensure this is called only after a valid start press.
-    if (((esp_timer_get_time() - time_last_end_event) < DEBOUNCE_DELAY) || !input_in_progress) 
+    if (((esp_timer_get_time() - time_last_end_event) < DEBOUNCE_DELAY) || !input_in_progress)
     {
         return;
     }
@@ -362,44 +406,46 @@ static int scan_cb(struct ble_gap_event *event, void *arg)
     {
     case BLE_GAP_EVENT_DISC:
         // Handle device discovery
-        ESP_LOGI(MORSE_TAG, "Device found: %x%x%x%x%x%x", event->disc.addr.val[0], event->disc.addr.val[1], 
-            event->disc.addr.val[2], event->disc.addr.val[3], event->disc.addr.val[4], event->disc.addr.val[5]);
+        ESP_LOGI(MORSE_TAG, "Device found: %x%x%x%x%x%x", event->disc.addr.val[0], event->disc.addr.val[1],
+                 event->disc.addr.val[2], event->disc.addr.val[3], event->disc.addr.val[4], event->disc.addr.val[5]);
         // Connect to the device if it matches your criteria
         // Replace `event->disc.addr` with the address of the device you want to connect to
         ble_gap_disc_cancel(); // cancel discovery to allow for connection
         uint8_t err;
-        
+
         // err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, serverPtr, 10000, NULL, NULL, NULL);
         err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, &event->disc.addr, 10000, NULL, NULL, NULL);
-        switch (err) {
-            case 0:
-                ESP_LOGI(MORSE_TAG, "ble_gap_connect successful");
-                err = ble_gap_conn_find_by_addr(&event->disc.addr, clientDesc); // setup clientDesc with the data
-                if (err != 0)
+        switch (err)
+        {
+        case 0:
+            ESP_LOGI(MORSE_TAG, "ble_gap_connect successful");
+            err = ble_gap_conn_find_by_addr(&event->disc.addr, clientDesc); // setup clientDesc with the data
+            if (err != 0)
+            {
+                ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address Failed");
+            }
+            ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address successful");
+            err = ble_gap_terminate(clientDesc->conn_handle, BLE_ERR_CONN_SPVN_TMO);
+            if (err != 0)
+            {
+                if (err == BLE_HS_ENOTCONN)
                 {
-                    ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address Failed");
+                    ESP_LOGI(MORSE_TAG, "BLE Connection no connection within specified handle");
                 }
-                ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address successful");
-                err = ble_gap_terminate(clientDesc->conn_handle, BLE_ERR_CONN_SPVN_TMO);
-                if (err != 0)
-                {
-                    if (err == BLE_HS_ENOTCONN) {
-                        ESP_LOGI(MORSE_TAG, "BLE Connection no connection within specified handle");
-                    }
-                    ESP_LOGI(MORSE_TAG, "BLE Connection terminate failed, error code: %d", err);
-                }
-                break;
-            case BLE_HS_EALREADY:
-                ESP_LOGI(MORSE_TAG, "ble_gap_connect connection already in progress");
-                break;
-            case BLE_HS_EBUSY:
-                ESP_LOGI(MORSE_TAG, "ble_gap_connect connection not possible because scanning is in progress");
-                break;
-            case BLE_HS_EDONE:
-                ESP_LOGI(MORSE_TAG, "ble_gap_connect specified peer is already connected");
-                break;
-            default:
-                ESP_LOGI(MORSE_TAG, "ble_gap_connect other nonzero on error: %u", err);
+                ESP_LOGI(MORSE_TAG, "BLE Connection terminate failed, error code: %d", err);
+            }
+            break;
+        case BLE_HS_EALREADY:
+            ESP_LOGI(MORSE_TAG, "ble_gap_connect connection already in progress");
+            break;
+        case BLE_HS_EBUSY:
+            ESP_LOGI(MORSE_TAG, "ble_gap_connect connection not possible because scanning is in progress");
+            break;
+        case BLE_HS_EDONE:
+            ESP_LOGI(MORSE_TAG, "ble_gap_connect specified peer is already connected");
+            break;
+        default:
+            ESP_LOGI(MORSE_TAG, "ble_gap_connect other nonzero on error: %u", err);
         }
         break;
     case BLE_GAP_EVENT_DISC_COMPLETE:
@@ -460,7 +506,6 @@ void gpio_setup()
     io_conf.pull_up_en = 1;
     gpio_config(&io_conf);
 
-
     // install gpio isr service
     gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
 
@@ -489,16 +534,17 @@ void host_task(void *param)
  * Helper method to activate gap discovery events, without needing to remember the details each time.
  * @return uint8_t, the error code or success code of ble_gap_disc.
  */
-uint8_t activate_gap_discovery() {
+uint8_t activate_gap_discovery()
+{
     return ble_gap_disc(ble_addr_type, 10 * 1000, &disc_params, scan_cb, NULL);
 }
 
 void ble_app_on_sync(void)
 {
     uint8_t err;
-    //ble_hs_id_infer_auto(0, &ble_addr_type); // Determines the best address type automatically
+    // ble_hs_id_infer_auto(0, &ble_addr_type); // Determines the best address type automatically
 
-    err = ble_hs_id_set_rnd(clientPtr->val); 
+    err = ble_hs_id_set_rnd(clientPtr->val);
     if (err != 0)
     {
         ESP_LOGI(MORSE_TAG, "BLE gap set random address failed %d", err);
@@ -522,7 +568,6 @@ void ble_app_on_sync(void)
     }
 
     ESP_LOGI(MORSE_TAG, "after ble_gap_disc");
-
 }
 
 void ble_client_setup()
@@ -541,9 +586,8 @@ void ble_client_setup()
     }
 
     ble_svc_gap_init();
-   
-    ble_hs_cfg.sync_cb = ble_app_on_sync; 
 
+    ble_hs_cfg.sync_cb = ble_app_on_sync;
 
     ESP_LOGI(MORSE_TAG, "after init s");
 
@@ -589,6 +633,6 @@ void ble_client_setup()
 
 void app_main(void)
 {
-    //gpio_setup();
+    // gpio_setup();
     ble_client_setup();
 }
