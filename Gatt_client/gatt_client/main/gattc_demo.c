@@ -225,38 +225,42 @@ char getLetterMorseCode(int decimalValue)
  */
 uint8_t* parse_one_attr(uint8_t *data, uint8_t desired_trait)
 {
-
-    uint8_t length;
-    uint8_t curr_idx;
+  uint8_t length;
+    uint8_t curr_idx = 0;
     uint8_t ad_type;
     uint8_t i;
-
-    uint8_t *parsed_data;
-
-    // searches for full name ad_type
-    while (ad_type != desired_trait)
+    
+    // Traverse the advertisement data to find the desired attribute
+    while (data[curr_idx] != '\0') // Assuming 0 as end of data marker; adjust as needed.
     {
+        length = data[curr_idx];  // Length of the current advertisement element
+        ad_type = data[curr_idx + 1];  // Type of the advertisement element
 
-        // length of parsed value
-        length = data[curr_idx];
+        // Check if the current advertisement type matches the desired trait
+        if (ad_type == desired_trait)
+        {
+            // Allocate memory for parsed data
+            uint8_t *parsed_data = (uint8_t *)malloc((length - 1) * sizeof(uint8_t));
+            if (parsed_data == NULL)
+            {
+                return NULL; // Memory allocation failed
+            }
 
-        // data type parsed value
-        ad_type = data[curr_idx + 1];
+            // Copy the data excluding the length and type bytes
+            for (i = 0; i < length - 1; i++)
+            {
+                parsed_data[i] = data[curr_idx + 2 + i];
+            }
 
-        // skips length byte, ad_type byte, and data
-        curr_idx = length + ad_type + curr_idx;
+            return parsed_data;
+        }
+
+        // Move to the next advertisement element
+        curr_idx += length + 1;
     }
 
-    // moves to start of the data
-    curr_idx -= length;
-    parsed_data = (uint8_t *)malloc(length * sizeof(uint8_t)); // allocates memory for name
-
-    for (i = 0; i < length; i++)
-    {
-        parsed_data[i] = data[curr_idx + i];
-    }
-
-    return parsed_data;
+    // Return NULL if the desired trait was not found
+    return NULL;
 }
 
 
