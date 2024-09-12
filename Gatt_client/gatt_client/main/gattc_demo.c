@@ -240,14 +240,14 @@ uint8_t* parse_one_attr(uint8_t *data, uint8_t desired_trait)
         if (ad_type == desired_trait)
         {
             // Allocate memory for parsed data
-            uint8_t *parsed_data = (uint8_t *)malloc((length - 1) * sizeof(uint8_t));
+            uint8_t *parsed_data = (uint8_t *)malloc((length - 2) * sizeof(uint8_t));
             if (parsed_data == NULL)
             {
                 return NULL; // Memory allocation failed
             }
 
             // Copy the data excluding the length and type bytes
-            for (i = 0; i < length - 1; i++)
+            for (i = 0; i < length - 2; i++)
             {
                 parsed_data[i] = data[curr_idx + 2 + i];
             }
