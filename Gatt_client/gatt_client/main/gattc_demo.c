@@ -246,11 +246,8 @@ uint8_t *parse_one_attr(uint8_t *data, uint8_t desired_trait)
                 return NULL; // Memory allocation failed
             }
 
-            // Copy the data excluding the length and type bytes
-            for (i = 0; i < length; i++)
-            {
-                parsed_data[i] = data[curr_idx + 2 + i];
-            }
+            //copies data
+            memcpy(parsed_data, data[curr_idx + 2 + i], length);
 
             return parsed_data;
         }
@@ -270,13 +267,10 @@ uint8_t *parse_one_attr(uint8_t *data, uint8_t desired_trait)
  */
 uint8_t **parse_all_attr(uint8 *data)
 {
-
     uint8_t curr_idx = 0;
-    uint8_t i = 0;
-    
-    uint8_t length, ad_type;
+    uint8_t length; 
+    uint8_t ad_type;
     uint8_t num_attr = 0;
-    uint8_t final_attr_label;
 
     // find final attribute first
     while (data[curr_idx] != '\0')
@@ -286,23 +280,35 @@ uint8_t **parse_all_attr(uint8 *data)
         num_attr++; // counts number of attributes for cases where it skips
     }
 
-    // gets label of final attr
-    final_attr_label = data[curr_idx];
-
     //sets number of pointers to # of attr
     uint8_t** parsed_data = (uint8_t **)malloc(num_attr * sizeof(uint8_t*));
+    if(parsed_data == NULL){
+        return NULL;
+    }
+
+    curr_idx = 0;
 
     //goes for number of attributes as until final attribute label
-    while ((i < num_attr) && (ad_type != final_attr_label))
+    while (uint8_t i = 0 < num_attr)
     {
         length = data[curr_idx];      // Length of the current advertisement element
         ad_type = data[curr_idx + 1]; // Type of the advertisement element
-        curr_idx += length + 1; 
-
+    
         //allocates each memory value by length individaully 
         parsed_data[i] = (uint8_t *)malloc(length * sizeof(uint8_t));
+        if(parsed_data[i] == NULL){
+            // deletes all pointers and frees memory
+            for (uint8_t j = 0; j < i; j++) {
+                free(parsed_data[j]);
+            }
+            free(parsed_data);
+            return NULL;
+        }
+
         parsed_data[i] = parse_one_attr(data, ad_type);
-        i++
+       
+        curr_idx += length + 1; 
+        i++;
     }
 
     return parsed_data;
