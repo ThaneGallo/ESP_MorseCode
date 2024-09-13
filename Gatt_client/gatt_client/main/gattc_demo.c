@@ -223,31 +223,31 @@ char getLetterMorseCode(int decimalValue)
  * @param desired_trait ad label for parsed trait
  * @return returns trait as byte array
  */
-uint8_t* parse_one_attr(uint8_t *data, uint8_t desired_trait)
+uint8_t *parse_one_attr(uint8_t *data, uint8_t desired_trait)
 {
     uint8_t length;
     uint8_t curr_idx = 0;
     uint8_t ad_type;
     uint8_t i;
-    
+
     // Traverse the advertisement data to find the desired attribute
     while (data[curr_idx] != '\0') // Assuming 0 as end of data marker; adjust as needed.
     {
-        length = data[curr_idx];  // Length of the current advertisement element
-        ad_type = data[curr_idx + 1];  // Type of the advertisement element
+        length = data[curr_idx];      // Length of the current advertisement element
+        ad_type = data[curr_idx + 1]; // Type of the advertisement element
 
         // Check if the current advertisement type matches the desired trait
         if (ad_type == desired_trait)
         {
             // Allocate memory for parsed data
-            uint8_t *parsed_data = (uint8_t *)malloc((length - 2) * sizeof(uint8_t));
+            uint8_t *parsed_data = (uint8_t *)malloc((length) * sizeof(uint8_t));
             if (parsed_data == NULL)
             {
                 return NULL; // Memory allocation failed
             }
 
             // Copy the data excluding the length and type bytes
-            for (i = 0; i < length - 2; i++)
+            for (i = 0; i < length; i++)
             {
                 parsed_data[i] = data[curr_idx + 2 + i];
             }
@@ -263,6 +263,50 @@ uint8_t* parse_one_attr(uint8_t *data, uint8_t desired_trait)
     return NULL;
 }
 
+/**
+ * parses all charactaristics
+ * @param data advertiser data
+ * @return returns trait as 2-d byte array
+ */
+uint8_t **parse_all_attr(uint8 *data)
+{
+
+    uint8_t curr_idx = 0;
+    uint8_t i = 0;
+    
+    uint8_t length, ad_type;
+    uint8_t num_attr = 0;
+    uint8_t final_attr_label;
+
+    // find final attribute first
+    while (data[curr_idx] != '\0')
+    {
+        length = data[curr_idx];      // Length of the current advertisement element
+        curr_idx += length + 1; // length + attr byte
+        num_attr++; // counts number of attributes for cases where it skips
+    }
+
+    // gets label of final attr
+    final_attr_label = data[curr_idx];
+
+    //sets number of pointers to # of attr
+    uint8_t** parsed_data = (uint8_t **)malloc(num_attr * sizeof(uint8_t*));
+
+    //goes for number of attributes as until final attribute label
+    while ((i < num_attr) && (ad_type != final_attr_label))
+    {
+        length = data[curr_idx];      // Length of the current advertisement element
+        ad_type = data[curr_idx + 1]; // Type of the advertisement element
+        curr_idx += length + 1; 
+
+        //allocates each memory value by length individaully 
+        parsed_data[i] = (uint8_t *)malloc(length * sizeof(uint8_t));
+        parsed_data[i] = parse_one_attr(data, ad_type);
+        i++
+    }
+
+    return parsed_data;
+}
 
 /**
  * Print the contents of both the message and character buffers into the terminal.
