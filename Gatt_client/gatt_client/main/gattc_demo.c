@@ -1,4 +1,4 @@
-﻿/*modified 9/9/2024*/
+﻿/*modified 9/16/2024*/
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -13,6 +13,7 @@
 
 #include "driver/gpio.h"
 #include "host/ble_hs.h"
+#include "host/ble_hs_adv.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "nimble/nimble_port.h"
@@ -78,8 +79,9 @@ static struct ble_gap_disc_params disc_params = {
     .passive = 0,
     .itvl = 0,
     .window = 0,
-    .filter_policy = BLE_HCI_SCAN_FILT_USE_WL_INITA,
-    //.filter_policy = BLE_HCI_SCAN_FILT_NO_WL,
+    .filter_policy = BLE_HCI_SCAN_FILT_USE_WL,
+    //.filter_policy = BLE_HCI_SCAN_FILT_USE_WL_INITA, // error code 18.
+    //.filter_policy = BLE_HCI_SCAN_FILT_NO_WL, // find all things no whitelist used.
     .limited = 0};
 
 // UUID macros
@@ -217,107 +219,107 @@ char getLetterMorseCode(int decimalValue)
     }
 }
 
-/**
- * parses 1 charactaristic as desired by user
- * @param data advertiser data
- * @param desired_trait ad label for parsed trait
- * @return returns trait as byte array
- */
-uint8_t *parse_one_attr(uint8_t *data, uint8_t desired_trait)
-{
-    uint8_t length;
-    uint16_t curr_idx = 2; //includes byte header
-    uint8_t ad_type;
+// /**
+//  * parses 1 charactaristic as desired by user
+//  * @param data advertiser data
+//  * @param desired_trait ad label for parsed trait
+//  * @return returns trait as byte array
+//  */
+// uint8_t *parse_one_attr(uint8_t *data, uint8_t desired_trait)
+// {
+//     uint8_t length;
+//     uint16_t curr_idx = 2; //includes byte header
+//     uint8_t ad_type;
 
-    // Traverse the advertisement data to find the desired attribute
-    while (data[curr_idx] != '\0') // Assuming 0 as end of data marker; adjust as needed.
-    {
-        length = data[curr_idx++];  // Length of the current advertisement element
-        ad_type = data[curr_idx++]; // Type of the advertisement element
+//     // Traverse the advertisement data to find the desired attribute
+//     while (data[curr_idx] != '\0') // Assuming 0 as end of data marker; adjust as needed.
+//     {
+//         length = data[curr_idx++];  // Length of the current advertisement element
+//         ad_type = data[curr_idx++]; // Type of the advertisement element
 
-        // Check if the current advertisement type matches the desired trait
-        if (ad_type == desired_trait)
-        {
-            // Allocate memory for parsed data
-            uint8_t *parsed_data = (uint8_t *)malloc((length) * sizeof(uint8_t));
-            if (parsed_data == NULL)
-            {
-                return NULL; // Memory allocation failed
-            }
+//         // Check if the current advertisement type matches the desired trait
+//         if (ad_type == desired_trait)
+//         {
+//             // Allocate memory for parsed data
+//             uint8_t *parsed_data = (uint8_t *)malloc((length) * sizeof(uint8_t));
+//             if (parsed_data == NULL)
+//             {
+//                 return NULL; // Memory allocation failed
+//             }
 
-            // copies data
-            memcpy(parsed_data, data[curr_idx], length - 1);
+//             // copies data
+//             memcpy(parsed_data, data[curr_idx], length - 1);
 
-            return parsed_data;
-        }
+//             return parsed_data;
+//         }
 
-        // Move to the length of next advertisement element
-        curr_idx += length - 1;
-    }
+//         // Move to the length of next advertisement element
+//         curr_idx += length - 1;
+//     }
 
-    // Return NULL if the desired trait was not found
-    return NULL;
-}
+//     // Return NULL if the desired trait was not found
+//     return NULL;
+// }
 
-/**
- * parses all charactaristics
- * @param data advertiser data
- * @return returns trait as 2-d byte array
- */
-uint8_t **parse_all_attr(uint8_t *data)
-{
-    uint16_t curr_idx = 2; //includes byte header
-    uint8_t i;
-    uint8_t length;
-    uint8_t ad_type;
-    uint8_t num_attr = 0;
+// /**
+//  * parses all charactaristics
+//  * @param data advertiser data
+//  * @return returns trait as 2-d byte array
+//  */
+// uint8_t **parse_all_attr(uint8_t *data)
+// {
+//     uint16_t curr_idx = 2; //includes byte header
+//     uint8_t i;
+//     uint8_t length;
+//     uint8_t ad_type;
+//     uint8_t num_attr = 0;
 
-    // find final attribute first
-    while (data[curr_idx] != '\0')
-    {
-        length = data[curr_idx]; // Length of the current advertisement element
-        curr_idx += length + 1;  // length
-        num_attr++;              // counts number of attributes for cases where it skips
-    }
+//     // find final attribute first
+//     while (data[curr_idx] != '\0')
+//     {
+//         length = data[curr_idx]; // Length of the current advertisement element
+//         curr_idx += length + 1;  // length
+//         num_attr++;              // counts number of attributes for cases where it skips
+//     }
 
-    // sets number of pointers to # of attr
-    uint8_t **parsed_data = (uint8_t **)malloc(num_attr * sizeof(uint8_t *));
-    if (parsed_data == NULL)
-    {
-        return NULL;
-    }
+//     // sets number of pointers to # of attr
+//     uint8_t **parsed_data = (uint8_t **)malloc(num_attr * sizeof(uint8_t *));
+//     if (parsed_data == NULL)
+//     {
+//         return NULL;
+//     }
 
-    curr_idx = 0;
-    i = 0;
+//     curr_idx = 0;
+//     i = 0;
 
-    // goes for number of attributes as until final attribute label
-    while (i < num_attr)
-    {
-        length = data[curr_idx];      // Length of the current advertisement element
-        ad_type = data[curr_idx + 1]; // Type of the advertisement element
+//     // goes for number of attributes as until final attribute label
+//     while (i < num_attr)
+//     {
+//         length = data[curr_idx];      // Length of the current advertisement element
+//         ad_type = data[curr_idx + 1]; // Type of the advertisement element
 
-        // allocates each memory value by length individually
-        parsed_data[i] = (uint8_t *)malloc(length * sizeof(uint8_t));
-        if (parsed_data[i] == NULL)
-        {
-            // deletes all pointers and frees memory
-            for (uint8_t j = 0; j < i; j++)
-            {
-                free(parsed_data[j]);
-            }
-            free(parsed_data);
-            return NULL;
-        }
+//         // allocates each memory value by length individually
+//         parsed_data[i] = (uint8_t *)malloc(length * sizeof(uint8_t));
+//         if (parsed_data[i] == NULL)
+//         {
+//             // deletes all pointers and frees memory
+//             for (uint8_t j = 0; j < i; j++)
+//             {
+//                 free(parsed_data[j]);
+//             }
+//             free(parsed_data);
+//             return NULL;
+//         }
 
-        parsed_data[i][0] = ad_type;
-        parsed_data[i][1] = parse_one_attr(data[curr_idx], ad_type);
+//         parsed_data[i][0] = ad_type;
+//         parsed_data[i][1] = parse_one_attr(data[curr_idx], ad_type);
 
-        curr_idx += length + 1;
-        i++;
-    }
+//         curr_idx += length + 1;
+//         i++;
+//     }
 
-    return parsed_data;
-}
+//     return parsed_data;
+// }
 
 /**
  * Print the contents of both the message and character buffers into the terminal.
@@ -473,15 +475,28 @@ static int scan_cb(struct ble_gap_event *event, void *arg)
         uint8_t err;
 
         // err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, serverPtr, 10000, NULL, NULL, NULL);
-        err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, &event->disc.addr, 10000, NULL, NULL, NULL);
+        //err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, &event->disc.addr, 10000, NULL, NULL, NULL);
+        err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, NULL, 10000, NULL, NULL, NULL);
         switch (err)
         {
         case 0:
             ESP_LOGI(MORSE_TAG, "ble_gap_connect successful");
-            err = ble_gap_conn_find_by_addr(&event->disc.addr, clientDesc); // setup clientDesc with the data
+            err = ble_gap_conn_active();
+            ESP_LOGI(MORSE_TAG, "BLE Connection Status = %d", err);
+            //err = ble_gap_conn_find(&event->connect.conn_handle, clientDesc); // mad b/c of pointer to the handle
+            err = ble_gap_conn_find_by_addr(&event->disc.addr, clientDesc); // setup clientDesc with the data            
             if (err != 0)
             {
-                ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address Failed");
+                if (err == BLE_HS_EDISABLED) {
+                    ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address Failed, Operation Disabled.");
+                }
+                else if (err == BLE_HS_ENOTCONN) {
+                    ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address Failed, Not Connected");
+                }
+                else {
+                    ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address Failed, error code: %d", err);
+                }
+                break;
             }
             ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address successful");
             err = ble_gap_terminate(clientDesc->conn_handle, BLE_ERR_CONN_SPVN_TMO);
@@ -491,7 +506,9 @@ static int scan_cb(struct ble_gap_event *event, void *arg)
                 {
                     ESP_LOGI(MORSE_TAG, "BLE Connection no connection within specified handle");
                 }
-                ESP_LOGI(MORSE_TAG, "BLE Connection terminate failed, error code: %d", err);
+                else {
+                    ESP_LOGI(MORSE_TAG, "BLE Connection terminate failed, error code: %d", err);
+                }
             }
             break;
         case BLE_HS_EALREADY:
@@ -635,7 +652,7 @@ void ble_client_setup()
 
     // init
     ESP_ERROR_CHECK(nvs_flash_init()); // sets up flash memory
-    // ESP_ERROR_CHECK(esp_nimble_hci_init()); // dies here
+    //ESP_ERROR_CHECK(esp_nimble_hci_init()); // dies here
     ESP_ERROR_CHECK(nimble_port_init());
 
     err = ble_svc_gap_device_name_set("BLE-Scan-Client"); // 4 - Set device name characteristic

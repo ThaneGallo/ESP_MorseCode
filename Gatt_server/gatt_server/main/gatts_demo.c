@@ -119,7 +119,7 @@ void ble_app_advertise(void)
     memset(&adv_params, 0, sizeof(adv_params));
     adv_params.conn_mode = BLE_GAP_CONN_MODE_UND; // connectable or non-connectable
     adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN; // discoverable or non-discoverable
-    adv_params.filter_policy = BLE_HCI_SCAN_FILT_USE_WL_INITA; // ***USE A WHITELIST***
+    adv_params.filter_policy = BLE_HCI_SCAN_FILT_USE_WL; // ***USE A WHITELIST***
     ble_gap_adv_start(BLE_OWN_ADDR_RANDOM, NULL, BLE_HS_FOREVER, &adv_params, ble_gap_event, NULL);
 }
 
