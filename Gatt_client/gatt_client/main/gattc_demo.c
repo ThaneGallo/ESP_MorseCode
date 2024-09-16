@@ -265,9 +265,10 @@ uint8_t *parse_one_attr(uint8_t *data, uint8_t desired_trait)
  * @param data advertiser data
  * @return returns trait as 2-d byte array
  */
-uint8_t **parse_all_attr(uint8 *data)
+uint8_t **parse_all_attr(uint8_t *data)
 {
     uint8_t curr_idx = 0;
+    uint8_t i;
     uint8_t length; 
     uint8_t ad_type;
     uint8_t num_attr = 0;
@@ -289,7 +290,7 @@ uint8_t **parse_all_attr(uint8 *data)
     curr_idx = 0;
 
     //goes for number of attributes as until final attribute label
-    while (uint8_t i = 0 < num_attr)
+    while (i = 0 < num_attr)
     {
         length = data[curr_idx];      // Length of the current advertisement element
         ad_type = data[curr_idx + 1]; // Type of the advertisement element
