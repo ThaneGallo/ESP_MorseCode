@@ -226,15 +226,14 @@ char getLetterMorseCode(int decimalValue)
 uint8_t *parse_one_attr(uint8_t *data, uint8_t desired_trait)
 {
     uint8_t length;
-    uint8_t curr_idx = 0;
+    uint16_t curr_idx = 2; //includes byte header
     uint8_t ad_type;
-    uint8_t i;
 
     // Traverse the advertisement data to find the desired attribute
     while (data[curr_idx] != '\0') // Assuming 0 as end of data marker; adjust as needed.
     {
-        length = data[curr_idx];      // Length of the current advertisement element
-        ad_type = data[curr_idx + 1]; // Type of the advertisement element
+        length = data[curr_idx++];  // Length of the current advertisement element
+        ad_type = data[curr_idx++]; // Type of the advertisement element
 
         // Check if the current advertisement type matches the desired trait
         if (ad_type == desired_trait)
@@ -246,14 +245,14 @@ uint8_t *parse_one_attr(uint8_t *data, uint8_t desired_trait)
                 return NULL; // Memory allocation failed
             }
 
-            //copies data
-            memcpy(parsed_data, data[curr_idx + 2 + i], length);
+            // copies data
+            memcpy(parsed_data, data[curr_idx], length - 1);
 
             return parsed_data;
         }
 
-        // Move to the next advertisement element
-        curr_idx += length + 1;
+        // Move to the length of next advertisement element
+        curr_idx += length - 1;
     }
 
     // Return NULL if the desired trait was not found
@@ -267,48 +266,53 @@ uint8_t *parse_one_attr(uint8_t *data, uint8_t desired_trait)
  */
 uint8_t **parse_all_attr(uint8_t *data)
 {
-    uint8_t curr_idx = 0;
+    uint16_t curr_idx = 2; //includes byte header
     uint8_t i;
-    uint8_t length; 
+    uint8_t length;
     uint8_t ad_type;
     uint8_t num_attr = 0;
 
     // find final attribute first
     while (data[curr_idx] != '\0')
     {
-        length = data[curr_idx];      // Length of the current advertisement element
-        curr_idx += length + 1; // length + attr byte
-        num_attr++; // counts number of attributes for cases where it skips
+        length = data[curr_idx]; // Length of the current advertisement element
+        curr_idx += length + 1;  // length
+        num_attr++;              // counts number of attributes for cases where it skips
     }
 
-    //sets number of pointers to # of attr
-    uint8_t** parsed_data = (uint8_t **)malloc(num_attr * sizeof(uint8_t*));
-    if(parsed_data == NULL){
+    // sets number of pointers to # of attr
+    uint8_t **parsed_data = (uint8_t **)malloc(num_attr * sizeof(uint8_t *));
+    if (parsed_data == NULL)
+    {
         return NULL;
     }
 
     curr_idx = 0;
+    i = 0;
 
-    //goes for number of attributes as until final attribute label
-    while (i = 0 < num_attr)
+    // goes for number of attributes as until final attribute label
+    while (i < num_attr)
     {
         length = data[curr_idx];      // Length of the current advertisement element
         ad_type = data[curr_idx + 1]; // Type of the advertisement element
-    
-        //allocates each memory value by length individaully 
+
+        // allocates each memory value by length individually
         parsed_data[i] = (uint8_t *)malloc(length * sizeof(uint8_t));
-        if(parsed_data[i] == NULL){
+        if (parsed_data[i] == NULL)
+        {
             // deletes all pointers and frees memory
-            for (uint8_t j = 0; j < i; j++) {
+            for (uint8_t j = 0; j < i; j++)
+            {
                 free(parsed_data[j]);
             }
             free(parsed_data);
             return NULL;
         }
 
-        parsed_data[i] = parse_one_attr(data, ad_type);
-       
-        curr_idx += length + 1; 
+        parsed_data[i][0] = ad_type;
+        parsed_data[i][1] = parse_one_attr(data[curr_idx], ad_type);
+
+        curr_idx += length + 1;
         i++;
     }
 
