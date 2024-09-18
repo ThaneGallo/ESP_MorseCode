@@ -72,7 +72,8 @@ static uint8_t ble_addr_type = BLE_OWN_ADDR_RANDOM;
 static const ble_addr_t *serverPtr = &serverAddr;
 static const ble_addr_t *clientPtr = &clientAddr;
 
-static struct ble_gap_conn_desc *serverDesc = NULL;
+static struct ble_gap_conn_desc serverDesc;
+static struct ble_gap_conn_desc *serverDescPtr = &serverDesc;
 
 // DISCOVERY PARAMETERS FOR SEARCH
 static struct ble_gap_disc_params disc_params = {
@@ -241,14 +242,16 @@ void debugPrintBuffer()
 void debugPrintServerDesc()
 {
     // each ble_addr_t has type and val
-    ESP_DRAM_LOGD(DEBUG_TAG, "our_id_addr: type = %x, val = %x%x%x%x%x%x", serverDesc->our_id_addr.type, serverDesc->our_id_addr.val[0], serverDesc->our_id_addr.val[1],
-             serverDesc->our_id_addr.val[2], serverDesc->our_id_addr.val[3], serverDesc->our_id_addr.val[4], serverDesc->our_id_addr.val[5]);
-    ESP_DRAM_LOGD(DEBUG_TAG, "peer_id_addr: type = %x, val = %x%x%x%x%x%x", serverDesc->peer_id_addr.type, serverDesc->peer_id_addr.val[0], serverDesc->peer_id_addr.val[1],
-             serverDesc->peer_id_addr.val[2], serverDesc->peer_id_addr.val[3], serverDesc->peer_id_addr.val[4], serverDesc->peer_id_addr.val[5]);
-    ESP_DRAM_LOGD(DEBUG_TAG, "our_ota_addr: type = %x, val = %x%x%x%x%x%x", serverDesc->our_ota_addr.type, serverDesc->our_ota_addr.val[0], serverDesc->our_ota_addr.val[1],
-             serverDesc->our_id_addr.val[2], serverDesc->our_ota_addr.val[3], serverDesc->our_ota_addr.val[4], serverDesc->our_ota_addr.val[5]);
-    ESP_DRAM_LOGD(DEBUG_TAG, "peer_ota_addr: type = %x, val = %x%x%x%x%x%x", serverDesc->peer_ota_addr.type, serverDesc->peer_ota_addr.val[0], serverDesc->peer_ota_addr.val[1],
-             serverDesc->peer_ota_addr.val[2], serverDesc->peer_ota_addr.val[3], serverDesc->peer_ota_addr.val[4], serverDesc->peer_ota_addr.val[5]);
+    ESP_LOGI(DEBUG_TAG, "our_id_addr: type = %x, val = %x%x%x%x%x%x", serverDescPtr->our_id_addr.type, serverDescPtr->our_id_addr.val[0], serverDescPtr->our_id_addr.val[1],
+             serverDescPtr->our_id_addr.val[2], serverDescPtr->our_id_addr.val[3], serverDescPtr->our_id_addr.val[4], serverDescPtr->our_id_addr.val[5]);
+    ESP_LOGI(DEBUG_TAG, "peer_id_addr: type = %x, val = %x%x%x%x%x%x", serverDescPtr->peer_id_addr.type, serverDescPtr->peer_id_addr.val[0], serverDescPtr->peer_id_addr.val[1],
+             serverDescPtr->peer_id_addr.val[2], serverDescPtr->peer_id_addr.val[3], serverDescPtr->peer_id_addr.val[4], serverDescPtr->peer_id_addr.val[5]);
+    ESP_LOGI(DEBUG_TAG, "our_ota_addr: type = %x, val = %x%x%x%x%x%x", serverDescPtr->our_ota_addr.type, serverDescPtr->our_ota_addr.val[0], serverDescPtr->our_ota_addr.val[1],
+             serverDescPtr->our_id_addr.val[2], serverDescPtr->our_ota_addr.val[3], serverDescPtr->our_ota_addr.val[4], serverDescPtr->our_ota_addr.val[5]);
+    ESP_LOGI(DEBUG_TAG, "peer_ota_addr: type = %x, val = %x%x%x%x%x%x", serverDescPtr->peer_ota_addr.type, serverDescPtr->peer_ota_addr.val[0], serverDescPtr->peer_ota_addr.val[1],
+             serverDescPtr->peer_ota_addr.val[2], serverDescPtr->peer_ota_addr.val[3], serverDescPtr->peer_ota_addr.val[4], serverDescPtr->peer_ota_addr.val[5]);
+
+    //ESP_LOGI(DEBUG_TAG, "our_id_addr: type = %x", serverDescPtr->our_id_addr.type); // Control test debug
 }
 
 /**
@@ -420,7 +423,7 @@ static int scan_cb(struct ble_gap_event *event, void *arg)
         ESP_LOGI(MORSE_TAG, "BLE Connection Status = %d", event->connect.status);
         ESP_LOGI(MORSE_TAG, "BLE Connection Handle = %x", event->connect.conn_handle);
 
-        err = ble_gap_conn_find(event->connect.conn_handle, serverDesc); // mad b/c of pointer to the handle
+        err = ble_gap_conn_find(event->connect.conn_handle, serverDescPtr); // mad b/c of pointer to the handle
         // err = ble_gap_conn_find_by_addr(serverPtr, serverDesc); // setup serverDesc with the data SUCCESSFUL
         // err = ble_gap_conn_find_by_addr(&event->disc.addr, serverDesc); // setup serverDesc with the data
         if (err != 0)
@@ -441,8 +444,9 @@ static int scan_cb(struct ble_gap_event *event, void *arg)
         }
         ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address successful");
 
-        debugPrintServerDesc();
 
+        debugPrintServerDesc();
+        
         // err = ble_gap_terminate(serverDesc->conn_handle, BLE_ERR_CONN_SPVN_TMO);
         // if (err != 0)
         // {
@@ -456,7 +460,7 @@ static int scan_cb(struct ble_gap_event *event, void *arg)
         // }
         break;
     case BLE_GAP_EVENT_DISCONNECT:
-        ESP_LOGI(MORSE_TAG, "ble_gap_event_disconnect successful");
+            ESP_LOGI(MORSE_TAG, "ble_gap_event_disconnect successful");
         break;
     default:
         ESP_LOGI(MORSE_TAG, "Called Event without handler: %u", event->type);
