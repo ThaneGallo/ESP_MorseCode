@@ -1,4 +1,4 @@
-/*9/9/24*/
+/*9/18/24*/
 
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
@@ -80,7 +80,7 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg)
     // Advertise if connected
     case BLE_GAP_EVENT_CONNECT:
         ESP_LOGI(GATTS_TAG, "BLE GAP EVENT CONNECT %s", event->connect.status == 0 ? "OK!" : "FAILED!");
-        if (event->connect.status != 0) // is this even possible?
+        if (event->connect.status != 0) // if no good connection, readvertise
         {
             ble_app_advertise();
         }

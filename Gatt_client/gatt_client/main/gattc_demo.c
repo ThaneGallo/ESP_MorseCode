@@ -1,4 +1,4 @@
-﻿/*modified 9/16/2024*/
+﻿/*modified 9/18/2024*/
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -51,6 +51,7 @@ static char charMessageBuffer[CHAR_BUFFER_LENGTH];
 
 #define ESP_INTR_FLAG_DEFAULT 0
 #define MORSE_TAG "Morse code tag"
+#define DEBUG_TAG "Debugging tag"
 #define DEBOUNCE_DELAY 50000 // time required between consecutive inputs to prevent debounce issues
 
 // ble address structs and pointers
@@ -71,7 +72,7 @@ static uint8_t ble_addr_type = BLE_OWN_ADDR_RANDOM;
 static const ble_addr_t *serverPtr = &serverAddr;
 static const ble_addr_t *clientPtr = &clientAddr;
 
-static struct ble_gap_conn_desc *clientDesc = NULL;
+static struct ble_gap_conn_desc *serverDesc = NULL;
 
 // DISCOVERY PARAMETERS FOR SEARCH
 static struct ble_gap_disc_params disc_params = {
@@ -219,108 +220,6 @@ char getLetterMorseCode(int decimalValue)
     }
 }
 
-// /**
-//  * parses 1 charactaristic as desired by user
-//  * @param data advertiser data
-//  * @param desired_trait ad label for parsed trait
-//  * @return returns trait as byte array
-//  */
-// uint8_t *parse_one_attr(uint8_t *data, uint8_t desired_trait)
-// {
-//     uint8_t length;
-//     uint16_t curr_idx = 2; //includes byte header
-//     uint8_t ad_type;
-
-//     // Traverse the advertisement data to find the desired attribute
-//     while (data[curr_idx] != '\0') // Assuming 0 as end of data marker; adjust as needed.
-//     {
-//         length = data[curr_idx++];  // Length of the current advertisement element
-//         ad_type = data[curr_idx++]; // Type of the advertisement element
-
-//         // Check if the current advertisement type matches the desired trait
-//         if (ad_type == desired_trait)
-//         {
-//             // Allocate memory for parsed data
-//             uint8_t *parsed_data = (uint8_t *)malloc((length) * sizeof(uint8_t));
-//             if (parsed_data == NULL)
-//             {
-//                 return NULL; // Memory allocation failed
-//             }
-
-//             // copies data
-//             memcpy(parsed_data, data[curr_idx], length - 1);
-
-//             return parsed_data;
-//         }
-
-//         // Move to the length of next advertisement element
-//         curr_idx += length - 1;
-//     }
-
-//     // Return NULL if the desired trait was not found
-//     return NULL;
-// }
-
-// /**
-//  * parses all charactaristics
-//  * @param data advertiser data
-//  * @return returns trait as 2-d byte array
-//  */
-// uint8_t **parse_all_attr(uint8_t *data)
-// {
-//     uint16_t curr_idx = 2; //includes byte header
-//     uint8_t i;
-//     uint8_t length;
-//     uint8_t ad_type;
-//     uint8_t num_attr = 0;
-
-//     // find final attribute first
-//     while (data[curr_idx] != '\0')
-//     {
-//         length = data[curr_idx]; // Length of the current advertisement element
-//         curr_idx += length + 1;  // length
-//         num_attr++;              // counts number of attributes for cases where it skips
-//     }
-
-//     // sets number of pointers to # of attr
-//     uint8_t **parsed_data = (uint8_t **)malloc(num_attr * sizeof(uint8_t *));
-//     if (parsed_data == NULL)
-//     {
-//         return NULL;
-//     }
-
-//     curr_idx = 0;
-//     i = 0;
-
-//     // goes for number of attributes as until final attribute label
-//     while (i < num_attr)
-//     {
-//         length = data[curr_idx];      // Length of the current advertisement element
-//         ad_type = data[curr_idx + 1]; // Type of the advertisement element
-
-//         // allocates each memory value by length individually
-//         parsed_data[i] = (uint8_t *)malloc(length * sizeof(uint8_t));
-//         if (parsed_data[i] == NULL)
-//         {
-//             // deletes all pointers and frees memory
-//             for (uint8_t j = 0; j < i; j++)
-//             {
-//                 free(parsed_data[j]);
-//             }
-//             free(parsed_data);
-//             return NULL;
-//         }
-
-//         parsed_data[i][0] = ad_type;
-//         parsed_data[i][1] = parse_one_attr(data[curr_idx], ad_type);
-
-//         curr_idx += length + 1;
-//         i++;
-//     }
-
-//     return parsed_data;
-// }
-
 /**
  * Print the contents of both the message and character buffers into the terminal.
  */
@@ -330,13 +229,26 @@ void debugPrintBuffer()
 
     for (i = 0; i <= mess_buf_end; i++)
     {
-        ESP_DRAM_LOGI(MORSE_TAG, "message buffer[%d]: %d", i, messageBuffer[i]);
+        ESP_DRAM_LOGD(DEBUG_TAG, "message buffer[%d]: %d", i, messageBuffer[i]);
     }
 
     for (i = 0; i <= charBufEnd; i++)
     {
-        ESP_DRAM_LOGI(MORSE_TAG, "character buffer[%d]: %c", i, charMessageBuffer[i]);
+        ESP_DRAM_LOGD(DEBUG_TAG, "character buffer[%d]: %c", i, charMessageBuffer[i]);
     }
+}
+
+void debugPrintServerDesc()
+{
+    // each ble_addr_t has type and val
+    ESP_DRAM_LOGD(DEBUG_TAG, "our_id_addr: type = %x, val = %x%x%x%x%x%x", serverDesc->our_id_addr.type, serverDesc->our_id_addr.val[0], serverDesc->our_id_addr.val[1],
+             serverDesc->our_id_addr.val[2], serverDesc->our_id_addr.val[3], serverDesc->our_id_addr.val[4], serverDesc->our_id_addr.val[5]);
+    ESP_DRAM_LOGD(DEBUG_TAG, "peer_id_addr: type = %x, val = %x%x%x%x%x%x", serverDesc->peer_id_addr.type, serverDesc->peer_id_addr.val[0], serverDesc->peer_id_addr.val[1],
+             serverDesc->peer_id_addr.val[2], serverDesc->peer_id_addr.val[3], serverDesc->peer_id_addr.val[4], serverDesc->peer_id_addr.val[5]);
+    ESP_DRAM_LOGD(DEBUG_TAG, "our_ota_addr: type = %x, val = %x%x%x%x%x%x", serverDesc->our_ota_addr.type, serverDesc->our_ota_addr.val[0], serverDesc->our_ota_addr.val[1],
+             serverDesc->our_id_addr.val[2], serverDesc->our_ota_addr.val[3], serverDesc->our_ota_addr.val[4], serverDesc->our_ota_addr.val[5]);
+    ESP_DRAM_LOGD(DEBUG_TAG, "peer_ota_addr: type = %x, val = %x%x%x%x%x%x", serverDesc->peer_ota_addr.type, serverDesc->peer_ota_addr.val[0], serverDesc->peer_ota_addr.val[1],
+             serverDesc->peer_ota_addr.val[2], serverDesc->peer_ota_addr.val[3], serverDesc->peer_ota_addr.val[4], serverDesc->peer_ota_addr.val[5]);
 }
 
 /**
@@ -475,41 +387,13 @@ static int scan_cb(struct ble_gap_event *event, void *arg)
         uint8_t err;
 
         // err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, serverPtr, 10000, NULL, NULL, NULL);
-        //err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, &event->disc.addr, 10000, NULL, NULL, NULL);
-        err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, NULL, 10000, NULL, NULL, NULL);
+        err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, &event->disc.addr, 10000, NULL, scan_cb, NULL); // works just fine.
+        // err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, NULL, 10000, NULL, NULL, NULL);
+
         switch (err)
         {
         case 0:
             ESP_LOGI(MORSE_TAG, "ble_gap_connect successful");
-            err = ble_gap_conn_active();
-            ESP_LOGI(MORSE_TAG, "BLE Connection Status = %d", err);
-            //err = ble_gap_conn_find(&event->connect.conn_handle, clientDesc); // mad b/c of pointer to the handle
-            err = ble_gap_conn_find_by_addr(&event->disc.addr, clientDesc); // setup clientDesc with the data            
-            if (err != 0)
-            {
-                if (err == BLE_HS_EDISABLED) {
-                    ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address Failed, Operation Disabled.");
-                }
-                else if (err == BLE_HS_ENOTCONN) {
-                    ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address Failed, Not Connected");
-                }
-                else {
-                    ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address Failed, error code: %d", err);
-                }
-                break;
-            }
-            ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address successful");
-            err = ble_gap_terminate(clientDesc->conn_handle, BLE_ERR_CONN_SPVN_TMO);
-            if (err != 0)
-            {
-                if (err == BLE_HS_ENOTCONN)
-                {
-                    ESP_LOGI(MORSE_TAG, "BLE Connection no connection within specified handle");
-                }
-                else {
-                    ESP_LOGI(MORSE_TAG, "BLE Connection terminate failed, error code: %d", err);
-                }
-            }
             break;
         case BLE_HS_EALREADY:
             ESP_LOGI(MORSE_TAG, "ble_gap_connect connection already in progress");
@@ -526,6 +410,53 @@ static int scan_cb(struct ble_gap_event *event, void *arg)
         break;
     case BLE_GAP_EVENT_DISC_COMPLETE:
         ESP_LOGI(MORSE_TAG, "Discover event complete");
+        break;
+    case BLE_GAP_EVENT_CONNECT:
+        ESP_LOGI(MORSE_TAG, "ble_gap_event_connect");
+
+        err = ble_gap_conn_active();
+        ESP_LOGI(MORSE_TAG, "BLE Active Connection Procedure = %d", err);
+
+        ESP_LOGI(MORSE_TAG, "BLE Connection Status = %d", event->connect.status);
+        ESP_LOGI(MORSE_TAG, "BLE Connection Handle = %x", event->connect.conn_handle);
+
+        err = ble_gap_conn_find(event->connect.conn_handle, serverDesc); // mad b/c of pointer to the handle
+        // err = ble_gap_conn_find_by_addr(serverPtr, serverDesc); // setup serverDesc with the data SUCCESSFUL
+        // err = ble_gap_conn_find_by_addr(&event->disc.addr, serverDesc); // setup serverDesc with the data
+        if (err != 0)
+        {
+            if (err == BLE_HS_EDISABLED)
+            {
+                ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address Failed, Operation Disabled.");
+            }
+            else if (err == BLE_HS_ENOTCONN)
+            {
+                ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address Failed, Not Connected");
+            }
+            else
+            {
+                ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address Failed, error code: %d", err);
+            }
+            break;
+        }
+        ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address successful");
+
+        debugPrintServerDesc();
+
+        // err = ble_gap_terminate(serverDesc->conn_handle, BLE_ERR_CONN_SPVN_TMO);
+        // if (err != 0)
+        // {
+        //     if (err == BLE_HS_ENOTCONN)
+        //     {
+        //         ESP_LOGI(MORSE_TAG, "BLE Connection no connection within specified handle");
+        //     }
+        //     else {
+        //         ESP_LOGI(MORSE_TAG, "BLE Connection terminate failed, error code: %d", err);
+        //     }
+        // }
+        break;
+    case BLE_GAP_EVENT_DISCONNECT:
+        ESP_LOGI(MORSE_TAG, "ble_gap_event_disconnect successful");
         break;
     default:
         ESP_LOGI(MORSE_TAG, "Called Event without handler: %u", event->type);
@@ -652,7 +583,7 @@ void ble_client_setup()
 
     // init
     ESP_ERROR_CHECK(nvs_flash_init()); // sets up flash memory
-    //ESP_ERROR_CHECK(esp_nimble_hci_init()); // dies here
+    // ESP_ERROR_CHECK(esp_nimble_hci_init()); // dies here
     ESP_ERROR_CHECK(nimble_port_init());
 
     err = ble_svc_gap_device_name_set("BLE-Scan-Client"); // 4 - Set device name characteristic
@@ -676,7 +607,7 @@ void ble_client_setup()
 
     // // ____________________________________________________________________________________
     // // doesnt connect to peer
-    // err = ble_gap_conn_find_by_addr(serverPtr, clientDesc);
+    // err = ble_gap_conn_find_by_addr(serverPtr, serverDesc);
     // if (err != 0)
     // {
     //     ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address Failed");
@@ -690,7 +621,7 @@ void ble_client_setup()
     // when completed BLE_GAP_EVENT_DISC_COMPLETE is triggered
 
     // // discovers primary service by uuid does it need to be discovered?
-    // err = ble_gattc_disc_svc_by_uuid(clientDesc->conn_handle, SERVICE_UUID, service_cb, NULL);
+    // err = ble_gattc_disc_svc_by_uuid(serverDesc->conn_handle, SERVICE_UUID, service_cb, NULL);
     // if (err != 0)
     // {
     //     ESP_LOGI(MORSE_TAG, "Discover Service Failed");
@@ -701,7 +632,7 @@ void ble_client_setup()
     // // ble_gatt_svc contains start and end handle
 
     // // forgot where start and end handle exist ;(
-    // ble_gattc_disc_chrs_by_uuid(clientDesc->conn_handle, uint16_t start_handle, uint16_t end_handle, WRITE_UUID, ble_gatt_chr_fn * cb, void *cb_arg)
+    // ble_gattc_disc_chrs_by_uuid(serverDesc->conn_handle, uint16_t start_handle, uint16_t end_handle, WRITE_UUID, ble_gatt_chr_fn * cb, void *cb_arg)
 
     // starts first task
     nimble_port_freertos_init(host_task);
