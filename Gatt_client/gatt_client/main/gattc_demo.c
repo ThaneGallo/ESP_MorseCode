@@ -1,4 +1,4 @@
-﻿/*modified 9/18/2024*/
+﻿/*modified 9/25/2024*/
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -52,6 +52,7 @@ static char charMessageBuffer[CHAR_BUFFER_LENGTH];
 #define ESP_INTR_FLAG_DEFAULT 0
 #define MORSE_TAG "Morse code tag"
 #define DEBUG_TAG "Debugging tag"
+#define ERROR_TAG "||| ERROR |||"
 #define DEBOUNCE_DELAY 50000 // time required between consecutive inputs to prevent debounce issues
 
 // ble address structs and pointers
@@ -75,7 +76,14 @@ static const ble_addr_t *clientPtr = &clientAddr;
 static struct ble_gap_conn_desc serverDesc;
 static struct ble_gap_conn_desc *serverDescPtr = &serverDesc;
 
-// DISCOVERY PARAMETERS FOR SEARCH
+static struct ble_gatt_svc serverService;
+static struct ble_gatt_svc *serverServicePtr = &serverService;
+
+#define CHARACTERISTIC_ARR_MAX 2
+static struct ble_gatt_chr *characteristics[CHARACTERISTIC_ARR_MAX]; // to store the characteristics
+static uint8_t characteristicCount = 0;
+
+// DISCOVERY PARAMETERS FOR GAP SEARCH
 static struct ble_gap_disc_params disc_params = {
     .filter_duplicates = 1,
     .passive = 0,
@@ -376,7 +384,67 @@ static void IRAM_ATTR gpio_send_event_handler(void *arg)
     mess_buf_end = 0;
 }
 
-static int scan_cb(struct ble_gap_event *event, void *arg)
+/**
+ * Find the service, return the handle of the connection (service? attribute?), setup callbacks for services & get ball running
+ */
+void gatt_conn_init() { 
+    uint8_t err;
+    err = ble_gattc_disc_all_svcs(serverDescPtr->conn_handle, ble_gatt_disc_svc_cb, NULL); // discover all primary services
+    switch (err) {
+        case 0:
+            ESP_LOGI(MORSE_TAG, "gattc service discovery successful");
+            break;
+        default:
+            ESP_LOGI(MORSE_TAG, "gattc service discovery failed, err = %u", err);
+            break;
+    }   
+}
+
+/**
+ * Callback function for gatt service discovery.
+ */
+static int ble_gatt_disc_svc_cb(uint16_t conn_handle, const struct ble_gatt_error *error, const struct ble_gatt_svc *service, void *arg) {
+    // check if there is an error
+    if (error->status != 0) {
+        ESP_LOGI(ERROR_TAG, "ble_gatt_disc_svc: an error has occured: error %u -> %u", error->att_handle, error->status);
+        return error->status;
+    }
+    serverServicePtr = service; // globally save the service information to serverServicePtr.
+
+    // discover all characteristics
+    uint8_t err = ble_gattc_disc_all_chrs(serverDescPtr->conn_handle, serverServicePtr->start_handle, serverServicePtr->end_handle, ble_gatt_chr_cb, NULL);
+    if (err != 0) {
+        ESP_LOGI(ERROR_TAG, "ble_gattc_disc_all_chrs: an error has occured: %u", err);
+        return err;
+    }
+    return 0;
+}
+
+/**
+ * Callback function for gatt characteristic discovery.
+ */
+static int ble_gatt_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *error, const struct ble_gatt_chr *chr, void *arg) {
+    // check if there is an error
+    if (error->status != 0) {
+        ESP_LOGI(ERROR_TAG, "ble_gatt_disc_svc: an error has occured: error %u -> %u", error->att_handle, error->status);
+        return error->status;
+    }
+
+    characteristics[characteristicCount] = chr; //save the latest characteristic data
+    // increment the count until we are at max.
+    if (characteristicCount < CHARACTERISTIC_ARR_MAX) {
+        characteristicCount++;
+    } else {
+        ESP_LOGI(ERROR_TAG, "ble_gatt_chr_cb: characteristic count exceeded maximum for handle %u", conn_handle);
+        return 0x69; // our own error code for if the characteristic count has exceeded
+    }
+    return 0;
+}
+
+/**
+ * Callback function for gap events.
+ */
+static int ble_gap_event(struct ble_gap_event *event, void *arg)
 {
     switch (event->type)
     {
@@ -390,7 +458,7 @@ static int scan_cb(struct ble_gap_event *event, void *arg)
         uint8_t err;
 
         // err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, serverPtr, 10000, NULL, NULL, NULL);
-        err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, &event->disc.addr, 10000, NULL, scan_cb, NULL); // works just fine.
+        err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, &event->disc.addr, 10000, NULL, ble_gap_event, NULL); // works just fine.
         // err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, NULL, 10000, NULL, NULL, NULL);
 
         switch (err)
@@ -447,17 +515,8 @@ static int scan_cb(struct ble_gap_event *event, void *arg)
 
         debugPrintServerDesc();
         
-        // err = ble_gap_terminate(serverDesc->conn_handle, BLE_ERR_CONN_SPVN_TMO);
-        // if (err != 0)
-        // {
-        //     if (err == BLE_HS_ENOTCONN)
-        //     {
-        //         ESP_LOGI(MORSE_TAG, "BLE Connection no connection within specified handle");
-        //     }
-        //     else {
-        //         ESP_LOGI(MORSE_TAG, "BLE Connection terminate failed, error code: %d", err);
-        //     }
-        // }
+        gatt_conn_init();
+        
         break;
     case BLE_GAP_EVENT_DISCONNECT:
             ESP_LOGI(MORSE_TAG, "ble_gap_event_disconnect successful");
@@ -547,7 +606,7 @@ void host_task(void *param)
  */
 uint8_t activate_gap_discovery()
 {
-    return ble_gap_disc(ble_addr_type, 10 * 1000, &disc_params, scan_cb, NULL);
+    return ble_gap_disc(ble_addr_type, 10 * 1000, &disc_params, ble_gap_event, NULL);
 }
 
 void ble_app_on_sync(void)
@@ -596,7 +655,8 @@ void ble_client_setup()
         ESP_LOGI(MORSE_TAG, "GAP device name set");
     }
 
-    ble_svc_gap_init();
+    ble_svc_gap_init(); // initialize gap
+    ble_gattc_init(); // initialize gatt
 
     ble_hs_cfg.sync_cb = ble_app_on_sync;
 

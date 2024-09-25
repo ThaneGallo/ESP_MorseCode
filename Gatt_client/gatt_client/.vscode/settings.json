@@ -9,6 +9,7 @@
     "ble_hs.h": "c",
     "cstdint": "c",
     "*.inc": "c",
-    "esp_bt.h": "c"
+    "esp_bt.h": "c",
+    "esp_log.h": "c"
   }
 }
