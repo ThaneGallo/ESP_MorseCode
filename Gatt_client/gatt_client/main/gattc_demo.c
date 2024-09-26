@@ -30,7 +30,7 @@ static uint8_t white_list_count = 1;
 
 // gpio
 static uint32_t mess_buf_end = 0;
-static uint32_t charBufEnd = 0;
+static uint32_t char_mess_buf_end = 0;
 
 static int64_t start_time;          // time of last valid start
 static int64_t time_last_end_event; // time of last valid end
@@ -46,8 +46,8 @@ static bool input_in_progress;
 
 #define MESS_BUFFER_LENGTH 2048
 #define CHAR_BUFFER_LENGTH 256
-static uint8_t messageBuffer[MESS_BUFFER_LENGTH];
-static char charMessageBuffer[CHAR_BUFFER_LENGTH];
+static uint8_t message_buf[MESS_BUFFER_LENGTH];
+static char char_message_buf[CHAR_BUFFER_LENGTH];
 
 #define ESP_INTR_FLAG_DEFAULT 0
 #define MORSE_TAG "Morse code tag"
@@ -56,32 +56,38 @@ static char charMessageBuffer[CHAR_BUFFER_LENGTH];
 #define DEBOUNCE_DELAY 50000 // time required between consecutive inputs to prevent debounce issues
 
 // ble address structs and pointers
-static const ble_addr_t serverAddr = {
+static const ble_addr_t server_addr = {
     .type = BLE_ADDR_RANDOM, // Example type value
     .val = {0xDE, 0xCA, 0xFB, 0xEE, 0xFE, 0xD2}
     //.val = {0xD0, 0xFE, 0xEE, 0xFB, 0xCA, 0xDE}
 };
 
-static const ble_addr_t clientAddr = {
+static const ble_addr_t client_addr = {
     .type = BLE_ADDR_RANDOM, // Example type value
     .val = {0xCA, 0xFF, 0xED, 0xBE, 0xEE, 0xEF}
     //.val = {0xEF, 0xEE, 0xBE, 0xED, 0xFF, 0xCA}
 };
 
 static uint8_t ble_addr_type = BLE_OWN_ADDR_RANDOM;
-// const uint8_t *clientAddressVal = &clientAddr.val;
-static const ble_addr_t *serverPtr = &serverAddr;
-static const ble_addr_t *clientPtr = &clientAddr;
+// const uint8_t *clientaddressVal = &client_addr.val;
+static const ble_addr_t *server_ptr = &server_addr;
+static const ble_addr_t *client_ptr = &client_addr;
 
-static struct ble_gap_conn_desc serverDesc;
-static struct ble_gap_conn_desc *serverDescPtr = &serverDesc;
+static struct ble_gap_conn_desc server_desc;
+static struct ble_gap_conn_desc *server_desc_ptr = &server_desc;
 
-static struct ble_gatt_svc serverService;
-static struct ble_gatt_svc *serverServicePtr = &serverService;
+static struct ble_gatt_svc server_service;
+static struct ble_gatt_svc *server_service_ptr = &server_service;
 
 #define CHARACTERISTIC_ARR_MAX 2
 static struct ble_gatt_chr *characteristics[CHARACTERISTIC_ARR_MAX]; // to store the characteristics
-static uint8_t characteristicCount = 0;
+static uint8_t characteristic_count = 0;
+
+static struct ble_profile{
+    struct ble_gatt_conn_desc conn_desc;
+    struct ble_gatt_svc *service;
+    struct ble_gatt_chr *characteristic[CHARACTERISTIC_ARR_MAX];
+};
 
 // DISCOVERY PARAMETERS FOR GAP SEARCH
 static struct ble_gap_disc_params disc_params = {
@@ -238,37 +244,37 @@ void debugPrintBuffer()
 
     for (i = 0; i <= mess_buf_end; i++)
     {
-        ESP_DRAM_LOGD(DEBUG_TAG, "message buffer[%d]: %d", i, messageBuffer[i]);
+        ESP_DRAM_LOGD(DEBUG_TAG, "message buffer[%d]: %d", i, message_buf[i]);
     }
 
-    for (i = 0; i <= charBufEnd; i++)
+    for (i = 0; i <= char_mess_buf_end; i++)
     {
-        ESP_DRAM_LOGD(DEBUG_TAG, "character buffer[%d]: %c", i, charMessageBuffer[i]);
+        ESP_DRAM_LOGD(DEBUG_TAG, "character buffer[%d]: %c", i, char_message_buf[i]);
     }
 }
 
-void debugPrintServerDesc()
+void debugPrintserver_desc()
 {
     // each ble_addr_t has type and val
-    ESP_LOGI(DEBUG_TAG, "our_id_addr: type = %x, val = %x%x%x%x%x%x", serverDescPtr->our_id_addr.type, serverDescPtr->our_id_addr.val[0], serverDescPtr->our_id_addr.val[1],
-             serverDescPtr->our_id_addr.val[2], serverDescPtr->our_id_addr.val[3], serverDescPtr->our_id_addr.val[4], serverDescPtr->our_id_addr.val[5]);
-    ESP_LOGI(DEBUG_TAG, "peer_id_addr: type = %x, val = %x%x%x%x%x%x", serverDescPtr->peer_id_addr.type, serverDescPtr->peer_id_addr.val[0], serverDescPtr->peer_id_addr.val[1],
-             serverDescPtr->peer_id_addr.val[2], serverDescPtr->peer_id_addr.val[3], serverDescPtr->peer_id_addr.val[4], serverDescPtr->peer_id_addr.val[5]);
-    ESP_LOGI(DEBUG_TAG, "our_ota_addr: type = %x, val = %x%x%x%x%x%x", serverDescPtr->our_ota_addr.type, serverDescPtr->our_ota_addr.val[0], serverDescPtr->our_ota_addr.val[1],
-             serverDescPtr->our_id_addr.val[2], serverDescPtr->our_ota_addr.val[3], serverDescPtr->our_ota_addr.val[4], serverDescPtr->our_ota_addr.val[5]);
-    ESP_LOGI(DEBUG_TAG, "peer_ota_addr: type = %x, val = %x%x%x%x%x%x", serverDescPtr->peer_ota_addr.type, serverDescPtr->peer_ota_addr.val[0], serverDescPtr->peer_ota_addr.val[1],
-             serverDescPtr->peer_ota_addr.val[2], serverDescPtr->peer_ota_addr.val[3], serverDescPtr->peer_ota_addr.val[4], serverDescPtr->peer_ota_addr.val[5]);
+    ESP_LOGI(DEBUG_TAG, "our_id_addr: type = %x, val = %x%x%x%x%x%x", server_desc_ptr->our_id_addr.type, server_desc_ptr->our_id_addr.val[0], server_desc_ptr->our_id_addr.val[1],
+             server_desc_ptr->our_id_addr.val[2], server_desc_ptr->our_id_addr.val[3], server_desc_ptr->our_id_addr.val[4], server_desc_ptr->our_id_addr.val[5]);
+    ESP_LOGI(DEBUG_TAG, "peer_id_addr: type = %x, val = %x%x%x%x%x%x", server_desc_ptr->peer_id_addr.type, server_desc_ptr->peer_id_addr.val[0], server_desc_ptr->peer_id_addr.val[1],
+             server_desc_ptr->peer_id_addr.val[2], server_desc_ptr->peer_id_addr.val[3], server_desc_ptr->peer_id_addr.val[4], server_desc_ptr->peer_id_addr.val[5]);
+    ESP_LOGI(DEBUG_TAG, "our_ota_addr: type = %x, val = %x%x%x%x%x%x", server_desc_ptr->our_ota_addr.type, server_desc_ptr->our_ota_addr.val[0], server_desc_ptr->our_ota_addr.val[1],
+             server_desc_ptr->our_id_addr.val[2], server_desc_ptr->our_ota_addr.val[3], server_desc_ptr->our_ota_addr.val[4], server_desc_ptr->our_ota_addr.val[5]);
+    ESP_LOGI(DEBUG_TAG, "peer_ota_addr: type = %x, val = %x%x%x%x%x%x", server_desc_ptr->peer_ota_addr.type, server_desc_ptr->peer_ota_addr.val[0], server_desc_ptr->peer_ota_addr.val[1],
+             server_desc_ptr->peer_ota_addr.val[2], server_desc_ptr->peer_ota_addr.val[3], server_desc_ptr->peer_ota_addr.val[4], server_desc_ptr->peer_ota_addr.val[5]);
 
-    //ESP_LOGI(DEBUG_TAG, "our_id_addr: type = %x", serverDescPtr->our_id_addr.type); // Control test debug
+    //ESP_LOGI(DEBUG_TAG, "our_id_addr: type = %x", server_desc_ptr->our_id_addr.type); // Control test debug
 }
 
 /**
- * Converts messageBuffer values into corresponding characterBuffer values.
+ * Converts message_buf values into corresponding characterBuffer values.
  */
 void encodeMorseCode()
 {
     /*
-    - For each bit-letter-combo in the messageBuffer array,
+    - For each bit-letter-combo in the message_buf array,
     - grab the bits for each letter individually, stopping when you reach the '2' at the end of the input
     - translate that into the corresponding character using getLetterMorseCode()
     - save that character into the character buffer
@@ -277,26 +283,26 @@ void encodeMorseCode()
     int currentIndex = 0; // index to iterate over
 
     // check for end condition, the 2nd '2' after a letter. "letter-bits ... 2 2"
-    while (messageBuffer[currentIndex] != 2)
+    while (message_buf[currentIndex] != 2)
     {
         int charDecimal = 1; // to add leading 1 to binary value
 
         // decode each letter until the first 2 is reached.
-        while (messageBuffer[currentIndex] != 2)
+        while (message_buf[currentIndex] != 2)
         {
             // decodes into decimal value of morse code w leading 1
-            charDecimal = (charDecimal << 1) + messageBuffer[currentIndex];
+            charDecimal = (charDecimal << 1) + message_buf[currentIndex];
             currentIndex++;
         }
         // currentIndex set to position after the end of a letter, AKA just after the '2' that marks the end of the letter-bits.
         currentIndex++;
 
         // translate and store the corresponding character into the character buffer
-        charMessageBuffer[charBufEnd] = getLetterMorseCode(charDecimal);
-        charBufEnd++;
+        char_message_buf[char_mess_buf_end] = getLetterMorseCode(charDecimal);
+        char_mess_buf_end++;
 
         ESP_DRAM_LOGI(MORSE_TAG, "Character decoded: %c", getLetterMorseCode(charDecimal));
-        // ESP_DRAM_LOGI(MORSE_TAG, "value at buffer start index :%d", messageBuffer[startIndex]); // what int is at the start of the next loop
+        // ESP_DRAM_LOGI(MORSE_TAG, "value at buffer start index :%d", message_buf[startIndex]); // what int is at the start of the next loop
     }
 }
 
@@ -314,7 +320,7 @@ static void IRAM_ATTR gpio_start_event_handler(void *arg)
 
     if ((start_time - time_last_end_event > SPACE_LENGTH) && (mess_buf_end != 0))
     {
-        messageBuffer[mess_buf_end] = 2;
+        message_buf[mess_buf_end] = 2;
         mess_buf_end++;
         ESP_DRAM_LOGI(MORSE_TAG, "2 placed in buffer in start event");
     }
@@ -336,21 +342,21 @@ static void IRAM_ATTR gpio_end_event_handler(void *arg)
     if (PRESS_LENGTH < (time_last_end_event - start_time))
     {
         // must hold button for at least press_length to get a 1
-        messageBuffer[mess_buf_end] = 1;
+        message_buf[mess_buf_end] = 1;
         mess_buf_end++;
         // ESP_DRAM_LOGI(MORSE_TAG, "2 in buffer");
     }
     else
     {
         // 0 if button held for less than press_length time
-        messageBuffer[mess_buf_end] = 0;
+        message_buf[mess_buf_end] = 0;
         mess_buf_end++;
         // ESP_DRAM_LOGI(MORSE_TAG, "1 in buffer");
     }
 
     input_in_progress = 0;
 
-    ESP_DRAM_LOGW(MORSE_TAG, "placed in buffer: %d", messageBuffer[mess_buf_end - 1]);
+    ESP_DRAM_LOGW(MORSE_TAG, "placed in buffer: %d", message_buf[mess_buf_end - 1]);
 }
 
 static void IRAM_ATTR gpio_send_event_handler(void *arg)
@@ -367,29 +373,29 @@ static void IRAM_ATTR gpio_send_event_handler(void *arg)
     // end each message with 2 twos
     if (mess_buf_end != 0)
     {
-        messageBuffer[mess_buf_end++] = 2;
-        messageBuffer[mess_buf_end] = 2;
+        message_buf[mess_buf_end++] = 2;
+        message_buf[mess_buf_end] = 2;
 
         encodeMorseCode();
 
-        ESP_DRAM_LOGI(MORSE_TAG, "character buffer end: %d", charBufEnd);
+        ESP_DRAM_LOGI(MORSE_TAG, "character buffer end: %d", char_mess_buf_end);
 
-        for (i = 0; i < charBufEnd; i++)
+        for (i = 0; i < char_mess_buf_end; i++)
         {
-            ESP_DRAM_LOGI(MORSE_TAG, "character buffer[%d]: %c", i, charMessageBuffer[i]);
+            ESP_DRAM_LOGI(MORSE_TAG, "character buffer[%d]: %c", i, char_message_buf[i]);
         }
     }
 
-    charBufEnd = 0;
+    char_mess_buf_end = 0;
     mess_buf_end = 0;
 }
 
 /**
  * Find the service, return the handle of the connection (service? attribute?), setup callbacks for services & get ball running
  */
-void gatt_conn_init() { 
+void gatt_conn_init(struct ble_profile profile) { 
     uint8_t err;
-    err = ble_gattc_disc_all_svcs(serverDescPtr->conn_handle, ble_gatt_disc_svc_cb, NULL); // discover all primary services
+    err = ble_gattc_disc_all_svcs(server_desc_ptr->conn_handle, ble_gatt_disc_svc_cb, &profile); // discover all primary services
     switch (err) {
         case 0:
             ESP_LOGI(MORSE_TAG, "gattc service discovery successful");
@@ -404,15 +410,18 @@ void gatt_conn_init() {
  * Callback function for gatt service discovery.
  */
 static int ble_gatt_disc_svc_cb(uint16_t conn_handle, const struct ble_gatt_error *error, const struct ble_gatt_svc *service, void *arg) {
+   
+   struct ble_profile *profile_ptr = (struct ble_profile*)arg;
+   
     // check if there is an error
     if (error->status != 0) {
         ESP_LOGI(ERROR_TAG, "ble_gatt_disc_svc: an error has occured: error %u -> %u", error->att_handle, error->status);
         return error->status;
     }
-    serverServicePtr = service; // globally save the service information to serverServicePtr.
+    server_service_ptr = profile_ptr->service; // globally save the service information to server_service_ptr.
 
     // discover all characteristics
-    uint8_t err = ble_gattc_disc_all_chrs(serverDescPtr->conn_handle, serverServicePtr->start_handle, serverServicePtr->end_handle, ble_gatt_chr_cb, NULL);
+    uint8_t err = ble_gattc_disc_all_chrs(profile_ptr->service->conn_handle, profile_ptr->service->start_handle, profile_ptr->service->end_handle, ble_gatt_chr_cb, profile_ptr);
     if (err != 0) {
         ESP_LOGI(ERROR_TAG, "ble_gattc_disc_all_chrs: an error has occured: %u", err);
         return err;
@@ -424,16 +433,19 @@ static int ble_gatt_disc_svc_cb(uint16_t conn_handle, const struct ble_gatt_erro
  * Callback function for gatt characteristic discovery.
  */
 static int ble_gatt_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *error, const struct ble_gatt_chr *chr, void *arg) {
+
+     struct ble_profile *profile_ptr = (struct ble_profile*)arg;
+
     // check if there is an error
     if (error->status != 0) {
         ESP_LOGI(ERROR_TAG, "ble_gatt_disc_svc: an error has occured: error %u -> %u", error->att_handle, error->status);
         return error->status;
     }
 
-    characteristics[characteristicCount] = chr; //save the latest characteristic data
+    profile_ptr->characteristic[characteristic_count] = chr; //save the latest characteristic data
     // increment the count until we are at max.
-    if (characteristicCount < CHARACTERISTIC_ARR_MAX) {
-        characteristicCount++;
+    if (characteristic_count < CHARACTERISTIC_ARR_MAX) {
+        characteristic_count++;
     } else {
         ESP_LOGI(ERROR_TAG, "ble_gatt_chr_cb: characteristic count exceeded maximum for handle %u", conn_handle);
         return 0x69; // our own error code for if the characteristic count has exceeded
@@ -446,6 +458,8 @@ static int ble_gatt_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *er
  */
 static int ble_gap_event(struct ble_gap_event *event, void *arg)
 {
+    struct ble_profile *profile_ptr = (struct ble_profile*)arg;
+
     switch (event->type)
     {
     case BLE_GAP_EVENT_DISC:
@@ -457,8 +471,8 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg)
         ble_gap_disc_cancel(); // cancel discovery to allow for connection
         uint8_t err;
 
-        // err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, serverPtr, 10000, NULL, NULL, NULL);
-        err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, &event->disc.addr, 10000, NULL, ble_gap_event, NULL); // works just fine.
+        // err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, server_ptr, 10000, NULL, NULL, NULL);
+        err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, &event->disc.addr, 10000, NULL, ble_gap_event, profile_ptr); // works just fine.
         // err = ble_gap_connect(BLE_OWN_ADDR_RANDOM, NULL, 10000, NULL, NULL, NULL);
 
         switch (err)
@@ -491,9 +505,9 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg)
         ESP_LOGI(MORSE_TAG, "BLE Connection Status = %d", event->connect.status);
         ESP_LOGI(MORSE_TAG, "BLE Connection Handle = %x", event->connect.conn_handle);
 
-        err = ble_gap_conn_find(event->connect.conn_handle, serverDescPtr); // mad b/c of pointer to the handle
-        // err = ble_gap_conn_find_by_addr(serverPtr, serverDesc); // setup serverDesc with the data SUCCESSFUL
-        // err = ble_gap_conn_find_by_addr(&event->disc.addr, serverDesc); // setup serverDesc with the data
+        err = ble_gap_conn_find(event->connect.conn_handle, profile_ptr->conn_desc); // mad b/c of pointer to the handle
+        // err = ble_gap_conn_find_by_addr(server_ptr, server_desc); // setup server_desc with the data SUCCESSFUL
+        // err = ble_gap_conn_find_by_addr(&event->disc.addr, server_desc); // setup server_desc with the data
         if (err != 0)
         {
             if (err == BLE_HS_EDISABLED)
@@ -512,8 +526,7 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg)
         }
         ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address successful");
 
-
-        debugPrintServerDesc();
+        // debugPrintserver_desc();
         
         gatt_conn_init();
         
@@ -604,17 +617,17 @@ void host_task(void *param)
  * Helper method to activate gap discovery events, without needing to remember the details each time.
  * @return uint8_t, the error code or success code of ble_gap_disc.
  */
-uint8_t activate_gap_discovery()
+uint8_t activate_gap_discovery(struct ble_profile profile)
 {
-    return ble_gap_disc(ble_addr_type, 10 * 1000, &disc_params, ble_gap_event, NULL);
+    return ble_gap_disc(ble_addr_type, 10 * 1000, &disc_params, ble_gap_event, &profile);
 }
 
 void ble_app_on_sync(void)
 {
     uint8_t err;
-    // ble_hs_id_infer_auto(0, &ble_addr_type); // Determines the best address type automatically
-
-    err = ble_hs_id_set_rnd(clientPtr->val);
+    struct ble_profile profile;
+    
+    err = ble_hs_id_set_rnd(client_ptr->val);
     if (err != 0)
     {
         ESP_LOGI(MORSE_TAG, "BLE gap set random address failed %d", err);
@@ -622,7 +635,7 @@ void ble_app_on_sync(void)
 
     ESP_LOGI(MORSE_TAG, "after ble_hs_set_rnd");
 
-    err = ble_gap_wl_set(serverPtr, white_list_count); // sets white list for connection to other device
+    err = ble_gap_wl_set(server_ptr, white_list_count); // sets white list for connection to other device
     if (err != 0)
     {
         ESP_LOGI(MORSE_TAG, "BLE gap set whitelist failed");
@@ -631,7 +644,7 @@ void ble_app_on_sync(void)
     ESP_LOGI(MORSE_TAG, "after ble_gap_wl_set");
 
     // use the discovery macro
-    err = activate_gap_discovery();
+    err = activate_gap_discovery(profile);
     if (err != 0)
     {
         ESP_LOGI(MORSE_TAG, "BLE GAP Discovery Failed: %u", err);
@@ -660,8 +673,6 @@ void ble_client_setup()
 
     ble_hs_cfg.sync_cb = ble_app_on_sync;
 
-    ESP_LOGI(MORSE_TAG, "after init s");
-
     // creates and sets random address
     // err = ble_hs_id_infer_auto(0, &ble_addr_type); // Determines the best address type automatically
     // if (err != 0)
@@ -671,7 +682,7 @@ void ble_client_setup()
 
     // // ____________________________________________________________________________________
     // // doesnt connect to peer
-    // err = ble_gap_conn_find_by_addr(serverPtr, serverDesc);
+    // err = ble_gap_conn_find_by_addr(server_ptr, server_desc);
     // if (err != 0)
     // {
     //     ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address Failed");
@@ -685,7 +696,7 @@ void ble_client_setup()
     // when completed BLE_GAP_EVENT_DISC_COMPLETE is triggered
 
     // // discovers primary service by uuid does it need to be discovered?
-    // err = ble_gattc_disc_svc_by_uuid(serverDesc->conn_handle, SERVICE_UUID, service_cb, NULL);
+    // err = ble_gattc_disc_svc_by_uuid(server_desc->conn_handle, SERVICE_UUID, service_cb, NULL);
     // if (err != 0)
     // {
     //     ESP_LOGI(MORSE_TAG, "Discover Service Failed");
@@ -696,7 +707,7 @@ void ble_client_setup()
     // // ble_gatt_svc contains start and end handle
 
     // // forgot where start and end handle exist ;(
-    // ble_gattc_disc_chrs_by_uuid(serverDesc->conn_handle, uint16_t start_handle, uint16_t end_handle, WRITE_UUID, ble_gatt_chr_fn * cb, void *cb_arg)
+    // ble_gattc_disc_chrs_by_uuid(server_desc->conn_handle, uint16_t start_handle, uint16_t end_handle, WRITE_UUID, ble_gatt_chr_fn * cb, void *cb_arg)
 
     // starts first task
     nimble_port_freertos_init(host_task);
