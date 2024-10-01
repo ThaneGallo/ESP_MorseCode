@@ -1,4 +1,4 @@
-﻿/*modified 9/25/2024*/
+﻿/*modified 10/1/2024*/
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -76,17 +76,21 @@ static const ble_addr_t *client_ptr = &client_addr;
 static struct ble_gap_conn_desc server_desc;
 static struct ble_gap_conn_desc *server_desc_ptr = &server_desc;
 
-static struct ble_gatt_svc server_service;
-static struct ble_gatt_svc *server_service_ptr = &server_service;
+// static struct ble_gatt_svc server_service;
+// static struct ble_gatt_svc *server_service_ptr = &server_service;
 
 #define CHARACTERISTIC_ARR_MAX 2
-static struct ble_gatt_chr *characteristics[CHARACTERISTIC_ARR_MAX]; // to store the characteristics
-static uint8_t characteristic_count = 0;
+// static struct ble_gatt_chr *characteristics[CHARACTERISTIC_ARR_MAX]; // to store the characteristics
+//static uint8_t characteristic_count = 0;
 
-static struct ble_profile{
-    struct ble_gatt_conn_desc conn_desc;
-    struct ble_gatt_svc *service;
-    struct ble_gatt_chr *characteristic[CHARACTERISTIC_ARR_MAX];
+static struct ble_profile
+{
+    const struct ble_gap_conn_desc *conn_desc;
+    const struct ble_gatt_svc *service;
+    //struct ble_gatt_chr characteristic[CHARACTERISTIC_ARR_MAX]; // characteristic array holds all the characteristics.
+    struct ble_gatt_chr *characteristic; // characteristic array holds all the characteristics.
+    uint8_t characteristic_count;
+
 };
 
 // DISCOVERY PARAMETERS FOR GAP SEARCH
@@ -104,6 +108,9 @@ static struct ble_gap_disc_params disc_params = {
 #define SERVICE_UUID 0xCAFE
 #define READ_UUID 0xCAFF
 #define WRITE_UUID 0xDECA
+
+// forward declarations
+static int ble_gatt_disc_svc_cb(uint16_t conn_handle, const struct ble_gatt_error *error, const struct ble_gatt_svc *service, void *arg);
 
 /**
  * Converts decimal value of Morse code to char.
@@ -265,7 +272,7 @@ void debugPrintserver_desc()
     ESP_LOGI(DEBUG_TAG, "peer_ota_addr: type = %x, val = %x%x%x%x%x%x", server_desc_ptr->peer_ota_addr.type, server_desc_ptr->peer_ota_addr.val[0], server_desc_ptr->peer_ota_addr.val[1],
              server_desc_ptr->peer_ota_addr.val[2], server_desc_ptr->peer_ota_addr.val[3], server_desc_ptr->peer_ota_addr.val[4], server_desc_ptr->peer_ota_addr.val[5]);
 
-    //ESP_LOGI(DEBUG_TAG, "our_id_addr: type = %x", server_desc_ptr->our_id_addr.type); // Control test debug
+    // ESP_LOGI(DEBUG_TAG, "our_id_addr: type = %x", server_desc_ptr->our_id_addr.type); // Control test debug
 }
 
 /**
@@ -391,62 +398,28 @@ static void IRAM_ATTR gpio_send_event_handler(void *arg)
 }
 
 /**
- * Find the service, return the handle of the connection (service? attribute?), setup callbacks for services & get ball running
- */
-void gatt_conn_init(struct ble_profile profile) { 
-    uint8_t err;
-    err = ble_gattc_disc_all_svcs(server_desc_ptr->conn_handle, ble_gatt_disc_svc_cb, &profile); // discover all primary services
-    switch (err) {
-        case 0:
-            ESP_LOGI(MORSE_TAG, "gattc service discovery successful");
-            break;
-        default:
-            ESP_LOGI(MORSE_TAG, "gattc service discovery failed, err = %u", err);
-            break;
-    }   
-}
-
-/**
- * Callback function for gatt service discovery.
- */
-static int ble_gatt_disc_svc_cb(uint16_t conn_handle, const struct ble_gatt_error *error, const struct ble_gatt_svc *service, void *arg) {
-   
-   struct ble_profile *profile_ptr = (struct ble_profile*)arg;
-   
-    // check if there is an error
-    if (error->status != 0) {
-        ESP_LOGI(ERROR_TAG, "ble_gatt_disc_svc: an error has occured: error %u -> %u", error->att_handle, error->status);
-        return error->status;
-    }
-    server_service_ptr = profile_ptr->service; // globally save the service information to server_service_ptr.
-
-    // discover all characteristics
-    uint8_t err = ble_gattc_disc_all_chrs(profile_ptr->service->conn_handle, profile_ptr->service->start_handle, profile_ptr->service->end_handle, ble_gatt_chr_cb, profile_ptr);
-    if (err != 0) {
-        ESP_LOGI(ERROR_TAG, "ble_gattc_disc_all_chrs: an error has occured: %u", err);
-        return err;
-    }
-    return 0;
-}
-
-/**
  * Callback function for gatt characteristic discovery.
  */
-static int ble_gatt_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *error, const struct ble_gatt_chr *chr, void *arg) {
+static int ble_gatt_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *error, const struct ble_gatt_chr *chr, void *arg)
+{
 
-     struct ble_profile *profile_ptr = (struct ble_profile*)arg;
+    struct ble_profile *profile_ptr = (struct ble_profile *)arg;
 
     // check if there is an error
-    if (error->status != 0) {
+    if (error->status != 0)
+    {
         ESP_LOGI(ERROR_TAG, "ble_gatt_disc_svc: an error has occured: error %u -> %u", error->att_handle, error->status);
         return error->status;
     }
 
-    profile_ptr->characteristic[characteristic_count] = chr; //save the latest characteristic data
+    profile_ptr->characteristic[characteristic_count] = *chr; // save the latest characteristic data
     // increment the count until we are at max.
-    if (characteristic_count < CHARACTERISTIC_ARR_MAX) {
+    if (characteristic_count < CHARACTERISTIC_ARR_MAX)
+    {
         characteristic_count++;
-    } else {
+    }
+    else
+    {
         ESP_LOGI(ERROR_TAG, "ble_gatt_chr_cb: characteristic count exceeded maximum for handle %u", conn_handle);
         return 0x69; // our own error code for if the characteristic count has exceeded
     }
@@ -454,11 +427,78 @@ static int ble_gatt_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *er
 }
 
 /**
+ * Callback function for gatt service discovery.
+ */
+static int ble_gatt_disc_svc_cb(uint16_t conn_handle, const struct ble_gatt_error *error, const struct ble_gatt_svc *service, void *arg)
+{
+
+    ESP_LOGI(MORSE_TAG, "start of svc callback");
+
+    struct ble_profile *profile_ptr = (struct ble_profile *)arg;
+
+    if (profile_ptr == NULL)
+    {
+        ESP_LOGI(MORSE_TAG, "profile ptr is null");
+        return -1;
+    }
+
+    // check if there is an error
+    if (error->status != 0)
+    {
+        ESP_LOGI(ERROR_TAG, "ble_gatt_disc_svc: an error has occured: error %u -> %u", error->att_handle, error->status);
+        return error->status;
+    }
+    // server_service_ptr = profile_ptr->service; // globally save the service information to server_service_ptr.
+
+    profile_ptr->service = service;
+
+    // discover all characteristics
+    uint8_t err = ble_gattc_disc_all_chrs(profile_ptr->conn_desc->conn_handle, profile_ptr->service->start_handle, profile_ptr->service->end_handle, ble_gatt_chr_cb, profile_ptr);
+    if (err != 0)
+    {
+        ESP_LOGI(ERROR_TAG, "ble_gattc_disc_all_chrs: an error has occured: %u", err);
+        return err;
+    }
+    return 0;
+}
+
+/**
+ * Find the service, return the handle of the connection (service? attribute?), setup callbacks for services & get ball running
+ */
+void gatt_conn_init(struct ble_profile *profile)
+{
+    uint8_t err;
+    ESP_LOGI(DEBUG_TAG, "before disc all srv");
+
+    if (!profile)
+    {
+        ESP_LOGI(ERROR_TAG, "Null pointer on line %d", __LINE__);
+        return;
+    }
+
+    err = ble_gattc_disc_all_svcs(profile->conn_desc->conn_handle, ble_gatt_disc_svc_cb, &profile); // discover all primary services
+    switch (err)
+    {
+    case 0:
+        ESP_LOGI(MORSE_TAG, "gattc service discovery successful");
+        break;
+    default:
+        ESP_LOGI(MORSE_TAG, "gattc service discovery failed, err = %u", err);
+        break;
+    }
+}
+
+/**
  * Callback function for gap events.
  */
 static int ble_gap_event(struct ble_gap_event *event, void *arg)
 {
-    struct ble_profile *profile_ptr = (struct ble_profile*)arg;
+    struct ble_profile *profile_ptr = (struct ble_profile *)arg;
+    if (!profile_ptr)
+    {
+        ESP_LOGI(ERROR_TAG, "Null pointer on line %d", __LINE__);
+        return -1;
+    }
 
     switch (event->type)
     {
@@ -505,9 +545,16 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg)
         ESP_LOGI(MORSE_TAG, "BLE Connection Status = %d", event->connect.status);
         ESP_LOGI(MORSE_TAG, "BLE Connection Handle = %x", event->connect.conn_handle);
 
-        err = ble_gap_conn_find(event->connect.conn_handle, profile_ptr->conn_desc); // mad b/c of pointer to the handle
+        err = ble_gap_conn_find(event->connect.conn_handle, profile_ptr->conn_desc);
         // err = ble_gap_conn_find_by_addr(server_ptr, server_desc); // setup server_desc with the data SUCCESSFUL
         // err = ble_gap_conn_find_by_addr(&event->disc.addr, server_desc); // setup server_desc with the data
+
+        if (!profile_ptr->conn_desc)
+        {
+            ESP_LOGI(ERROR_TAG, "Null pointer on line %d", __LINE__);
+            return -1;
+        }
+
         if (err != 0)
         {
             if (err == BLE_HS_EDISABLED)
@@ -527,12 +574,12 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg)
         ESP_LOGI(MORSE_TAG, "BLE Connection Find by Address successful");
 
         // debugPrintserver_desc();
-        
-        gatt_conn_init();
-        
+
+        gatt_conn_init(profile_ptr);
+
         break;
     case BLE_GAP_EVENT_DISCONNECT:
-            ESP_LOGI(MORSE_TAG, "ble_gap_event_disconnect successful");
+        ESP_LOGI(MORSE_TAG, "ble_gap_event_disconnect successful");
         break;
     default:
         ESP_LOGI(MORSE_TAG, "Called Event without handler: %u", event->type);
@@ -613,12 +660,30 @@ void host_task(void *param)
     return;
 }
 
-
 void ble_app_on_sync(void)
 {
     uint8_t err;
-    struct ble_profile profile;
-    
+
+    // struct ble_gap_conn_desc *conn_desc; // create memory for the conn_desc
+    // struct ble_gatt_ *conn_desc;
+    // struct ble_gap_conn_desc *conn_desc;
+
+    struct ble_gap_conn_desc conn_desc; // Pointer to it
+    struct ble_gatt_svc service;
+    //struct ble_gatt_chr characteristic[CHARACTERISTIC_ARR_MAX] = {{0}}; // initialize characteristic array (size 2) with all 0's.
+    struct ble_gatt_chr characteristic; // initialize characteristic array (size 2).
+
+    // profile.conn_desc = &server_desc; // tell the profile->conn_desc where to point to in actual memory
+    // profile.service = service;
+    // profile.characteristic = characteristic;
+
+    struct ble_profile profile = {
+        .conn_desc = &conn_desc,
+        .service = &service,
+        .characteristic = &characteristic
+
+    }; // profile creation in memory
+
     err = ble_hs_id_set_rnd(client_ptr->val);
     if (err != 0)
     {
@@ -637,7 +702,6 @@ void ble_app_on_sync(void)
     {
         ESP_LOGI(MORSE_TAG, "BLE GAP Discovery Failed: %u", err);
     }
-
 }
 
 void ble_client_setup()
@@ -656,7 +720,7 @@ void ble_client_setup()
     }
 
     ble_svc_gap_init(); // initialize gap
-    ble_gattc_init(); // initialize gatt
+    ble_gattc_init();   // initialize gatt
 
     ble_hs_cfg.sync_cb = ble_app_on_sync;
 
