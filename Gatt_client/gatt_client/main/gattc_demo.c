@@ -671,7 +671,12 @@ void ble_app_on_sync(void)
     struct ble_gap_conn_desc conn_desc; // Pointer to it
     struct ble_gatt_svc service;
     //struct ble_gatt_chr characteristic[CHARACTERISTIC_ARR_MAX] = {{0}}; // initialize characteristic array (size 2) with all 0's.
-    struct ble_gatt_chr characteristic; // initialize characteristic array (size 2).
+    struct ble_gatt_chr* characteristic; // initialize characteristic array (size 2).
+
+    characteristic = malloc(sizeof(struct ble_gatt_chr) * CHARACTERISTIC_ARR_MAX);
+    if(!characteristic){
+        ESP_LOGI(ERROR_TAG, "BLE Characteristic is NULL on line %d", __LINE__);
+    }
 
     // profile.conn_desc = &server_desc; // tell the profile->conn_desc where to point to in actual memory
     // profile.service = service;
@@ -680,7 +685,7 @@ void ble_app_on_sync(void)
     struct ble_profile profile = {
         .conn_desc = &conn_desc,
         .service = &service,
-        .characteristic = &characteristic
+        .characteristic = characteristic
 
     }; // profile creation in memory
 
