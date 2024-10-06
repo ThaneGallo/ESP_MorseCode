@@ -1,4 +1,4 @@
-# Install script for directory: C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_server/gatt_server/main
+# Install script for directory: C:/Users/thane/projects/ESP_MorseCode/Gatt_server/gatt_server/main
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -34,6 +34,6 @@ endif()
 
 # Set default install directory permissions.
 if(NOT DEFINED CMAKE_OBJDUMP)
-  set(CMAKE_OBJDUMP "C:/Users/Cooper/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20240530/xtensa-esp-elf/bin/xtensa-esp32-elf-objdump.exe")
+  set(CMAKE_OBJDUMP "C:/Users/thane/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/bin/xtensa-esp32-elf-objdump.exe")
 endif()
 

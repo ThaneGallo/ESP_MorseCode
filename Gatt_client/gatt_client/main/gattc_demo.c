@@ -1,4 +1,4 @@
-﻿/*modified 10/1/2024*/
+﻿/*modified 10/6/2024*/
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -81,16 +81,14 @@ static struct ble_gap_conn_desc *server_desc_ptr = &server_desc;
 
 #define CHARACTERISTIC_ARR_MAX 2
 // static struct ble_gatt_chr *characteristics[CHARACTERISTIC_ARR_MAX]; // to store the characteristics
-//static uint8_t characteristic_count = 0;
+static uint8_t characteristic_count = 0;
 
 static struct ble_profile
 {
     const struct ble_gap_conn_desc *conn_desc;
     const struct ble_gatt_svc *service;
-    //struct ble_gatt_chr characteristic[CHARACTERISTIC_ARR_MAX]; // characteristic array holds all the characteristics.
-    struct ble_gatt_chr *characteristic; // characteristic array holds all the characteristics.
-    uint8_t characteristic_count;
-
+    // struct ble_gatt_chr characteristic[CHARACTERISTIC_ARR_MAX]; // characteristic array holds all the characteristics.
+    struct ble_gatt_chr **characteristic; // characteristic array holds all the characteristics.
 };
 
 // DISCOVERY PARAMETERS FOR GAP SEARCH
@@ -108,6 +106,9 @@ static struct ble_gap_disc_params disc_params = {
 #define SERVICE_UUID 0xCAFE
 #define READ_UUID 0xCAFF
 #define WRITE_UUID 0xDECA
+
+// static uint8_t write_val = WRITE_UUID;
+// static uint8_t service_val = SERVICE_UUID;
 
 // forward declarations
 static int ble_gatt_disc_svc_cb(uint16_t conn_handle, const struct ble_gatt_error *error, const struct ble_gatt_svc *service, void *arg);
@@ -403,6 +404,7 @@ static void IRAM_ATTR gpio_send_event_handler(void *arg)
 static int ble_gatt_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *error, const struct ble_gatt_chr *chr, void *arg)
 {
 
+    ESP_LOGI(DEBUG_TAG, "start of chr callback");
     struct ble_profile *profile_ptr = (struct ble_profile *)arg;
 
     // check if there is an error
@@ -412,7 +414,8 @@ static int ble_gatt_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *er
         return error->status;
     }
 
-    profile_ptr->characteristic[characteristic_count] = *chr; // save the latest characteristic data
+    profile_ptr->characteristic[characteristic_count] = chr; // save the latest characteristic data
+
     // increment the count until we are at max.
     if (characteristic_count < CHARACTERISTIC_ARR_MAX)
     {
@@ -435,6 +438,7 @@ static int ble_gatt_disc_svc_cb(uint16_t conn_handle, const struct ble_gatt_erro
     ESP_LOGI(MORSE_TAG, "start of svc callback");
 
     struct ble_profile *profile_ptr = (struct ble_profile *)arg;
+    uint8_t err = 0;
 
     if (profile_ptr == NULL)
     {
@@ -445,20 +449,55 @@ static int ble_gatt_disc_svc_cb(uint16_t conn_handle, const struct ble_gatt_erro
     // check if there is an error
     if (error->status != 0)
     {
-        ESP_LOGI(ERROR_TAG, "ble_gatt_disc_svc: an error has occured: error %u -> %u", error->att_handle, error->status);
+        ESP_LOGI(ERROR_TAG, "ble_gatt_disc_svc: an error has occured: attr handle:%u status -> %u", error->att_handle, error->status);
         return error->status;
     }
     // server_service_ptr = profile_ptr->service; // globally save the service information to server_service_ptr.
 
+    // ESP_LOGI(MORSE_TAG, "before service alloc");
+
     profile_ptr->service = service;
 
+    //  ESP_LOGI(DEBUG_TAG, "", rc);
+
+    // ESP_LOGI(MORSE_TAG, "after service alloc");
+
     // discover all characteristics
-    uint8_t err = ble_gattc_disc_all_chrs(profile_ptr->conn_desc->conn_handle, profile_ptr->service->start_handle, profile_ptr->service->end_handle, ble_gatt_chr_cb, profile_ptr);
+    err = ble_gattc_disc_all_chrs(conn_handle, profile_ptr->service->start_handle, profile_ptr->service->end_handle, ble_gatt_chr_cb, profile_ptr);
     if (err != 0)
     {
         ESP_LOGI(ERROR_TAG, "ble_gattc_disc_all_chrs: an error has occured: %u", err);
         return err;
     }
+
+    ble_uuid16_t *read_uuid;
+    read_uuid = malloc(sizeof(ble_uuid16_t));
+
+    read_uuid->u.type = BLE_UUID_TYPE_16;
+    read_uuid->value = READ_UUID;
+
+    //  ble_uuid16_t *write_uuid;
+    // write_uuid = malloc(sizeof(ble_uuid16_t));
+
+    // write_uuid->u.type = BLE_UUID_TYPE_16;
+    // write_uuid->value = WRITE_UUID;
+
+    // ESP_LOGI(MORSE_TAG, "before disc by uuid");
+
+    // err = ble_gattc_disc_chrs_by_uuid(conn_handle, service->start_handle, service->end_handle, &read_uuid->u, ble_gatt_chr_cb, profile_ptr);
+    // if (err != 0)
+    // {
+    //     ESP_LOGI(ERROR_TAG, "ble_gattc_disc READUUID: error has occured: %u", err);
+    //     return err;
+    // }
+
+    // err = ble_gattc_disc_chrs_by_uuid(conn_handle, service->start_handle, service->end_handle, &write_uuid->u, ble_gatt_chr_cb, profile_ptr);
+    // if (err != 0)
+    // {
+    //     ESP_LOGI(ERROR_TAG, "ble_gattc_disc READUUID: error has occured: %u", err);
+    //     return err;
+    // }
+
     return 0;
 }
 
@@ -668,73 +707,94 @@ void ble_app_on_sync(void)
     // struct ble_gatt_ *conn_desc;
     // struct ble_gap_conn_desc *conn_desc;
 
-    struct ble_gap_conn_desc conn_desc; // Pointer to it
-    struct ble_gatt_svc service;
-    //struct ble_gatt_chr characteristic[CHARACTERISTIC_ARR_MAX] = {{0}}; // initialize characteristic array (size 2) with all 0's.
-    struct ble_gatt_chr* characteristic; // initialize characteristic array (size 2).
+    // struct ble_gap_conn_desc* conn_desc; // Pointer to it
+    // struct ble_gatt_svc* service;
+    // //struct ble_gatt_chr characteristic[CHARACTERISTIC_ARR_MAX] = {{0}}; // initialize characteristic array (size 2) with all 0's.
 
-    characteristic = malloc(sizeof(struct ble_gatt_chr) * CHARACTERISTIC_ARR_MAX);
-    if(!characteristic){
+    struct ble_gatt_chr **characteristic;
+
+    characteristic = malloc(sizeof(struct ble_gatt_chr *) * CHARACTERISTIC_ARR_MAX);
+    if (!characteristic)
+    {
         ESP_LOGI(ERROR_TAG, "BLE Characteristic is NULL on line %d", __LINE__);
+        free(characteristic);
     }
 
-    // profile.conn_desc = &server_desc; // tell the profile->conn_desc where to point to in actual memory
-    // profile.service = service;
-    // profile.characteristic = characteristic;
-
-    struct ble_profile profile = {
-        .conn_desc = &conn_desc,
-        .service = &service,
-        .characteristic = characteristic
-
-    }; // profile creation in memory
-
-    err = ble_hs_id_set_rnd(client_ptr->val);
-    if (err != 0)
+    for (int i = 0; i < CHARACTERISTIC_ARR_MAX; i++)
     {
-        ESP_LOGI(MORSE_TAG, "BLE gap set random address failed %d", err);
-    }
+        characteristic[i] = malloc(sizeof(struct ble_gatt_chr) * CHARACTERISTIC_ARR_MAX);
+        if (characteristic[i] == NULL)
+        {
+            ESP_LOGI(ERROR_TAG, "BLE Characteristic is NULL on line %d", __LINE__);
+            free(characteristic[i]);
+        }
 
-    err = ble_gap_wl_set(server_ptr, white_list_count); // sets white list for connection to other device
-    if (err != 0)
-    {
-        ESP_LOGI(MORSE_TAG, "BLE gap set whitelist failed");
-    }
+        struct ble_profile *profile;
 
-    // begin gap discovery
-    err = ble_gap_disc(ble_addr_type, 10 * 1000, &disc_params, ble_gap_event, &profile);
-    if (err != 0)
-    {
-        ESP_LOGI(MORSE_TAG, "BLE GAP Discovery Failed: %u", err);
+        profile = malloc(sizeof(struct ble_profile));
+
+        profile->conn_desc = malloc(sizeof(struct ble_gap_conn_desc));
+        profile->service = malloc(sizeof(struct ble_gatt_svc));
+        profile->characteristic = characteristic;
+
+        // profile.conn_desc = &server_desc; // tell the profile->conn_desc where to point to in actual memory
+        // profile.service = service;
+        // profile.characteristic = characteristic;
+
+        // struct ble_profile profile = {
+        //     .conn_desc = &conn_desc,
+        //     .service = &service,
+        //     .characteristic = characteristic
+
+        // }; // profile creation in memory
+
+        err = ble_hs_id_set_rnd(client_ptr->val);
+        if (err != 0)
+        {
+            ESP_LOGI(MORSE_TAG, "BLE gap set random address failed %d", err);
+        }
+
+        err = ble_gap_wl_set(server_ptr, white_list_count); // sets white list for connection to other device
+        if (err != 0)
+        {
+            ESP_LOGI(MORSE_TAG, "BLE gap set whitelist failed");
+        }
+
+        // begin gap discovery
+        err = ble_gap_disc(ble_addr_type, 10 * 1000, &disc_params, ble_gap_event, profile);
+        if (err != 0)
+        {
+            ESP_LOGI(MORSE_TAG, "BLE GAP Discovery Failed: %u", err);
+        }
     }
 }
 
-void ble_client_setup()
-{
-    uint8_t err;
-
-    // init
-    ESP_ERROR_CHECK(nvs_flash_init()); // sets up flash memory
-    // ESP_ERROR_CHECK(esp_nimble_hci_init()); // dies here
-    ESP_ERROR_CHECK(nimble_port_init());
-
-    err = ble_svc_gap_device_name_set("BLE-Scan-Client"); // 4 - Set device name characteristic
-    if (err != 0)
+    void ble_client_setup()
     {
-        ESP_LOGI(MORSE_TAG, "GAP device name set");
+        uint8_t err;
+
+        // init
+        ESP_ERROR_CHECK(nvs_flash_init()); // sets up flash memory
+        // ESP_ERROR_CHECK(esp_nimble_hci_init()); // dies here
+        ESP_ERROR_CHECK(nimble_port_init());
+
+        err = ble_svc_gap_device_name_set("BLE-Scan-Client"); // 4 - Set device name characteristic
+        if (err != 0)
+        {
+            ESP_LOGI(MORSE_TAG, "GAP device name set");
+        }
+
+        ble_svc_gap_init(); // initialize gap
+        ble_gattc_init();   // initialize gatt
+
+        ble_hs_cfg.sync_cb = ble_app_on_sync;
+
+        // starts first task
+        nimble_port_freertos_init(host_task);
     }
 
-    ble_svc_gap_init(); // initialize gap
-    ble_gattc_init();   // initialize gatt
-
-    ble_hs_cfg.sync_cb = ble_app_on_sync;
-
-    // starts first task
-    nimble_port_freertos_init(host_task);
-}
-
-void app_main(void)
-{
-    // gpio_setup();
-    ble_client_setup();
-}
+    void app_main(void)
+    {
+        // gpio_setup();
+        ble_client_setup();
+    }

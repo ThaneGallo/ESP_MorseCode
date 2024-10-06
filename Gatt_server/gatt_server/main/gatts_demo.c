@@ -60,7 +60,7 @@ static int device_read(uint16_t con_handle, uint16_t attr_handle, struct ble_gat
 // Array of pointers to other service definitions
 // UUID - Universal Unique Identifier
 static const struct ble_gatt_svc_def gatt_svcs[] = {
-    {.type = BLE_GATT_SVC_TYPE_PRIMARY,
+    {.type = BLE_GATT_SVC_TYPE_END,
      .uuid = BLE_UUID16_DECLARE(SERVICE_UUID), // Define UUID for device type
      .characteristics = (struct ble_gatt_chr_def[]){
          {.uuid = BLE_UUID16_DECLARE(READ_UUID), // Define UUID for reading
@@ -68,9 +68,10 @@ static const struct ble_gatt_svc_def gatt_svcs[] = {
           .access_cb = device_read},
          {.uuid = BLE_UUID16_DECLARE(WRITE_UUID), // Define UUID for writing
           .flags = BLE_GATT_CHR_F_WRITE,
-          .access_cb = device_write},
-         {0}}},
-    {0}};
+          .access_cb = device_write}
+         }
+         }
+    };
 
 // BLE event handling
 static int ble_gap_event(struct ble_gap_event *event, void *arg)
