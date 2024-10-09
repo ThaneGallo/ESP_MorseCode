@@ -1,4 +1,4 @@
-/*10/8/24*/
+/*10/9/24*/
 
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
@@ -32,10 +32,21 @@ static const ble_addr_t clientAddr = {
 static const ble_addr_t *serverPtr = &serverAddr;
 static const ble_addr_t *clientPtr = &clientAddr;
 
-
-#define SERVICE_UUID 0xCAFE
-#define READ_UUID 0xCAFF
-#define WRITE_UUID  0xDECA
+// old 16 bits
+// #define SERVICE_UUID 0xCAFE
+// #define READ_UUID 0xCAFF
+// #define WRITE_UUID  0xDECA
+// new 128 bits
+#define SERVICE_UUID {0xCAFECAFECAFECAFECAFECAFECAFECAFE} // 128-bit base UUID
+#define READ_UUID {0xCAFFCAFFCAFFCAFFCAFFCAFFCAFFCAFF} // 128-bit base UUID
+#define WRITE_UUID {0xDEBADEBADEBADEBADEBADEBADEBADEBA} // 128-bit base UUID
+// #define WRITE_UUID {0xDECADECADECADECADECADECADECADECA} // 128-bit base UUID
+// #define SERVICE_UUID {0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE} // 128-bit base UUID
+// #define READ_UUID {0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF} // 128-bit base UUID
+// #define WRITE_UUID {0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA} // 128-bit base UUID
+// static uint8_t SERVICE_UUID[16] = {0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE};
+// static uint8_t READ_UUID[16] = {0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF};
+// static uint8_t WRITE_UUID[16] = {0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA};
 
 void ble_app_advertise(void);
 
@@ -59,19 +70,30 @@ static int device_read(uint16_t con_handle, uint16_t attr_handle, struct ble_gat
 
 // Array of pointers to other service definitions
 // UUID - Universal Unique Identifier
+// static const struct ble_gatt_svc_def gatt_svcs[] = {
+//     {.type = BLE_GATT_SVC_TYPE_PRIMARY,
+//      .uuid = BLE_UUID16_DECLARE(SERVICE_UUID), // Define UUID for device type
+//      .characteristics = (struct ble_gatt_chr_def[]){
+//          {.uuid = BLE_UUID16_DECLARE(READ_UUID), // Define UUID for reading
+//           .flags = BLE_GATT_CHR_F_READ,
+//           .access_cb = device_read},
+//          {.uuid = BLE_UUID16_DECLARE(WRITE_UUID), // Define UUID for writing
+//           .flags = BLE_GATT_CHR_F_WRITE,
+//           .access_cb = device_write},
+//          {0}}},
+//     {0}};
 static const struct ble_gatt_svc_def gatt_svcs[] = {
     {.type = BLE_GATT_SVC_TYPE_PRIMARY,
-     .uuid = BLE_UUID16_DECLARE(SERVICE_UUID), // Define UUID for device type
+     .uuid = BLE_UUID128_DECLARE(SERVICE_UUID), // Define UUID for device type
      .characteristics = (struct ble_gatt_chr_def[]){
-         {.uuid = BLE_UUID16_DECLARE(READ_UUID), // Define UUID for reading
+         {.uuid = BLE_UUID128_DECLARE(READ_UUID), // Define UUID for reading
           .flags = BLE_GATT_CHR_F_READ,
           .access_cb = device_read},
-         {.uuid = BLE_UUID16_DECLARE(WRITE_UUID), // Define UUID for writing
+         {.uuid = BLE_UUID128_DECLARE(WRITE_UUID), // Define UUID for writing
           .flags = BLE_GATT_CHR_F_WRITE,
           .access_cb = device_write},
          {0}}},
     {0}};
-
 
 // BLE event handling
 static int ble_gap_event(struct ble_gap_event *event, void *arg)

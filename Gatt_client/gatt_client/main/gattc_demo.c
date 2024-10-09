@@ -1,4 +1,4 @@
-﻿/*modified 10/8/2024*/
+﻿/*modified 10/9/2024*/
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -79,7 +79,7 @@ static struct ble_gap_conn_desc *server_desc_ptr = &server_desc;
 // static struct ble_gatt_svc server_service;
 // static struct ble_gatt_svc *server_service_ptr = &server_service;
 
-#define CHARACTERISTIC_ARR_MAX 3
+#define CHARACTERISTIC_ARR_MAX 2
 // static struct ble_gatt_chr *characteristics[CHARACTERISTIC_ARR_MAX]; // to store the characteristics
 static uint8_t characteristic_count = 0;
 
@@ -103,9 +103,12 @@ static struct ble_gap_disc_params disc_params = {
     .limited = 0};
 
 // UUID macros
-#define SERVICE_UUID 0xCAFE
-#define READ_UUID 0xCAFF
-#define WRITE_UUID 0xDECA
+// #define SERVICE_UUID 0xCAFE
+// #define READ_UUID 0xCAFF
+// #define WRITE_UUID 0xDECA
+static uint8_t SERVICE_UUID[16] = {0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE};
+static uint8_t READ_UUID[16] = {0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF};
+static uint8_t WRITE_UUID[16] = {0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA};
 
 // static uint8_t write_val = WRITE_UUID;
 // static uint8_t service_val = SERVICE_UUID;
@@ -398,6 +401,7 @@ static void IRAM_ATTR gpio_send_event_handler(void *arg)
     mess_buf_end = 0;
 }
 
+
 /**
  * Callback function for gatt characteristic discovery.
  */
@@ -407,14 +411,32 @@ static int ble_gatt_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *er
     ESP_LOGI(DEBUG_TAG, "start of chr callback");
     struct ble_profile *profile_ptr = (struct ble_profile *)arg;
 
+    if(!chr) {
+        ESP_LOGI(DEBUG_TAG, "ble_gatt_chr_cb: characteristic data empty. handle %u, status %u", error->att_handle, error->status);
+    }
     // check if there is an error
-    if (error->status != 0)
-    {
-        ESP_LOGI(ERROR_TAG, "ble_gatt_chr_cb: an error has occured: error %u -> %u", error->att_handle, error->status);
-        return error->status;
+    switch(error->status) {
+        case 0: {
+            ESP_LOGI(DEBUG_TAG, "ble_gatt_chr_cb: no error, attr_handle: %u, status: %u", error->att_handle, error->status);
+            break;
+        }
+        case BLE_HS_EDONE: {
+            ESP_LOGI(DEBUG_TAG, "ble_gatt_chr_cb: all done, status %u", error->status);
+            return 0;
+        }
+        default: {
+            ESP_LOGI(ERROR_TAG, "ble_gatt_chr_cb: an error has occured: error %u -> %u", error->att_handle, error->status);
+            return error->status;
+        }
     }
 
-    ESP_LOGI(DEBUG_TAG, "uuid of characteristic = %04x", chr->uuid.u16.value);
+    // ESP_LOGI(DEBUG_TAG, "uuid of characteristic = %04x", chr->uuid.u16.value);
+    // ESP_LOGI(DEBUG_TAG, "uuid of characteristic = %32x", chr->uuid.u128.value);
+    ESP_LOGI(DEBUG_TAG, "uuid of characteristic = %8x%8x%8x%8x%8x%8x%8x%8x%8x%8x%8x%8x%8x%8x%8x%8x", chr->uuid.u128.value[0], chr->uuid.u128.value[1], 
+        chr->uuid.u128.value[2], chr->uuid.u128.value[3], chr->uuid.u128.value[4], chr->uuid.u128.value[5], chr->uuid.u128.value[6], 
+        chr->uuid.u128.value[7], chr->uuid.u128.value[8], chr->uuid.u128.value[9], chr->uuid.u128.value[10], chr->uuid.u128.value[11], 
+        chr->uuid.u128.value[12], chr->uuid.u128.value[13], chr->uuid.u128.value[14], chr->uuid.u128.value[15]
+    );
 
     profile_ptr->characteristic[characteristic_count] = *chr; // save the latest characteristic data
 
@@ -449,10 +471,19 @@ static int ble_gatt_disc_svc_cb(uint16_t conn_handle, const struct ble_gatt_erro
     }
 
     // check if there is an error
-    if (error->status != 0)
-    {
-        ESP_LOGI(ERROR_TAG, "ble_gatt_disc_svc: an error has occured: attr handle:%u status -> %u", error->att_handle, error->status);
-        return error->status;
+    switch(error->status) {
+        case 0: {
+            ESP_LOGI(DEBUG_TAG, "ble_gatt_disc_svc: no error, attr_handle: %u, status: %u", error->att_handle, error->status);
+            break;
+        }
+        case BLE_HS_EDONE: {
+            ESP_LOGI(DEBUG_TAG, "ble_gatt_disc_svc: all done, status %u", error->status);
+            return 0;
+        }
+        default: {
+            ESP_LOGI(ERROR_TAG, "ble_gatt_disc_svc: an error has occured: attr handle:%u status -> %u", error->att_handle, error->status);
+            return error->status;
+        }
     }
 
     // check that service is real
@@ -463,10 +494,16 @@ static int ble_gatt_disc_svc_cb(uint16_t conn_handle, const struct ble_gatt_erro
     } else if (service->uuid.u16.value == 0x1800 || service->uuid.u16.value == 0x1801) {
         ESP_LOGI(DEBUG_TAG, "uuid of generic service = %04x", service->uuid.u16.value);
         return 0; // these are generic characteristics and attributes, per our google investigation
-    } 
+    }
     // server_service_ptr = profile_ptr->service; // globally save the service information to server_service_ptr.
 
-    ESP_LOGI(DEBUG_TAG, "uuid of service = %04x", service->uuid.u16.value);
+    //ESP_LOGI(DEBUG_TAG, "uuid of service = %04x", service->uuid.u16.value);
+
+    ESP_LOGI(DEBUG_TAG, "uuid of service = %8x%8x%8x%8x%8x%8x%8x%8x%8x%8x%8x%8x%8x%8x%8x%8x", service->uuid.u128.value[0], service->uuid.u128.value[1], service->uuid.u128.value[2],
+        service->uuid.u128.value[3], service->uuid.u128.value[4], service->uuid.u128.value[5], service->uuid.u128.value[6], service->uuid.u128.value[7], service->uuid.u128.value[8],
+        service->uuid.u128.value[9], service->uuid.u128.value[10], service->uuid.u128.value[11], service->uuid.u128.value[12], service->uuid.u128.value[13], 
+        service->uuid.u128.value[14], service->uuid.u128.value[15]
+    );
 
     profile_ptr->service = service;
 
@@ -482,11 +519,11 @@ static int ble_gatt_disc_svc_cb(uint16_t conn_handle, const struct ble_gatt_erro
         return err;
     }
 
-    ble_uuid16_t *read_uuid;
-    read_uuid = malloc(sizeof(ble_uuid16_t));
+    // ble_uuid16_t *read_uuid;
+    // read_uuid = malloc(sizeof(ble_uuid16_t));
 
-    read_uuid->u.type = BLE_UUID_TYPE_16;
-    read_uuid->value = READ_UUID;
+    // read_uuid->u.type = BLE_UUID_TYPE_16;
+    // read_uuid->value = READ_UUID;
 
     //  ble_uuid16_t *write_uuid;
     // write_uuid = malloc(sizeof(ble_uuid16_t));
