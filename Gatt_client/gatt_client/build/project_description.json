@@ -1,7 +1,7 @@
 {
     "version":            "1.1",
     "project_name":       "gatt_client_demo",
-    "project_version":    "502a109-dirty",
+    "project_version":    "721718f-dirty",
     "project_path":       "C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_client/gatt_client",
     "idf_path":           "C:/Users/Cooper/esp/v5.3/esp-idf",
     "build_dir":          "C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_client/gatt_client/build",
@@ -1165,7 +1165,7 @@
             "managed_reqs": [],
             "managed_priv_reqs": [],
             "file": "C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_client/gatt_client/build/esp-idf/main/libmain.a",
-            "sources": [ "C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_client/gatt_client/main/gattc_demo.c" ],
+            "sources": [ "C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_client/gatt_client/main/morse_functions.c", "C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_client/gatt_client/main/gattc_demo.c" ],
             "include_dirs": [ "." ]
         },
         "mbedtls": {
