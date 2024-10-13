@@ -1,4 +1,4 @@
-﻿/*modified 10/9/2024*/
+﻿/*modified 10/13/2024*/
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -27,6 +27,7 @@
 #include <stdio.h>
 
 #include "morse_functions.h"
+
 
 static uint8_t white_list_count = 1;
 
@@ -108,9 +109,9 @@ static struct ble_gap_disc_params disc_params = {
 // #define SERVICE_UUID 0xCAFE
 // #define READ_UUID 0xCAFF
 // #define WRITE_UUID 0xDECA
-static uint8_t SERVICE_UUID[16] = {0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE};
-static uint8_t READ_UUID[16] = {0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF};
-static uint8_t WRITE_UUID[16] = {0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA};
+static uint8_t SERVICE_UUID[16] = {0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA};
+static uint8_t READ_UUID[16] = {0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA};
+static uint8_t WRITE_UUID[16] = {0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE};
 
 // static uint8_t write_val = WRITE_UUID;
 // static uint8_t service_val = SERVICE_UUID;
@@ -286,6 +287,7 @@ static int ble_gatt_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *er
     if(!chr) {
         ESP_LOGI(DEBUG_TAG, "ble_gatt_chr_cb: characteristic data empty. handle %u, status %u", error->att_handle, error->status);
     }
+
     // check if there is an error
     switch(error->status) {
         case 0: {
@@ -310,7 +312,7 @@ static int ble_gatt_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *er
         chr->uuid.u128.value[12], chr->uuid.u128.value[13], chr->uuid.u128.value[14], chr->uuid.u128.value[15]
     );
 
-    profile_ptr->characteristic[characteristic_count] = *chr; // save the latest characteristic data
+    profile_ptr->characteristic[characteristic_count] = *chr; // save the latest characteristic data to this local profile_ptr
 
     // increment the count until we are at max.
     if (characteristic_count < CHARACTERISTIC_ARR_MAX)
@@ -340,6 +342,10 @@ static int ble_gatt_disc_svc_cb(uint16_t conn_handle, const struct ble_gatt_erro
     {
         ESP_LOGI(MORSE_TAG, "profile ptr is null");
         return -1;
+    }
+
+    if(!service) {
+        ESP_LOGI(DEBUG_TAG, "ble_gatt_disc_svc: service data empty. handle %u, status %u", error->att_handle, error->status);
     }
 
     // check if there is an error
@@ -601,7 +607,7 @@ void host_task(void *param)
 
 void ble_app_on_sync(void)
 {
-    // create the profile structure, allocate memory, and pass it the characteristic data
+    // *********create the profile structure, allocate memory, and pass it the characteristic data*********
     ble_profile *profile;
     profile = malloc(sizeof(struct ble_profile));
 

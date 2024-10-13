@@ -20,6 +20,7 @@
     "istream": "c",
     "ostream": "c",
     "regex": "c",
-    "array": "c"
+    "array": "c",
+    "morse_functions.h": "c"
   }
 }

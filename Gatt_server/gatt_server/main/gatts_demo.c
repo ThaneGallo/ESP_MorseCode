@@ -1,4 +1,4 @@
-/*10/9/24*/
+/*10/13/24*/
 
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
@@ -40,13 +40,6 @@ static const ble_addr_t *clientPtr = &clientAddr;
 #define SERVICE_UUID {0xCAFECAFECAFECAFECAFECAFECAFECAFE} // 128-bit base UUID
 #define READ_UUID {0xCAFFCAFFCAFFCAFFCAFFCAFFCAFFCAFF} // 128-bit base UUID
 #define WRITE_UUID {0xDEBADEBADEBADEBADEBADEBADEBADEBA} // 128-bit base UUID
-// #define WRITE_UUID {0xDECADECADECADECADECADECADECADECA} // 128-bit base UUID
-// #define SERVICE_UUID {0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE} // 128-bit base UUID
-// #define READ_UUID {0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF} // 128-bit base UUID
-// #define WRITE_UUID {0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA} // 128-bit base UUID
-// static uint8_t SERVICE_UUID[16] = {0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE};
-// static uint8_t READ_UUID[16] = {0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF};
-// static uint8_t WRITE_UUID[16] = {0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA};
 
 void ble_app_advertise(void);
 
@@ -72,28 +65,28 @@ static int device_read(uint16_t con_handle, uint16_t attr_handle, struct ble_gat
 // UUID - Universal Unique Identifier
 // static const struct ble_gatt_svc_def gatt_svcs[] = {
 //     {.type = BLE_GATT_SVC_TYPE_PRIMARY,
-//      .uuid = BLE_UUID16_DECLARE(SERVICE_UUID), // Define UUID for device type
+//      .uuid = BLE_UUID128_DECLARE(0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA), // Define UUID for device type
 //      .characteristics = (struct ble_gatt_chr_def[]){
-//          {.uuid = BLE_UUID16_DECLARE(READ_UUID), // Define UUID for reading
+//          {.uuid = BLE_UUID128_DECLARE(0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA), // Define UUID for reading
 //           .flags = BLE_GATT_CHR_F_READ,
 //           .access_cb = device_read},
-//          {.uuid = BLE_UUID16_DECLARE(WRITE_UUID), // Define UUID for writing
+//          {.uuid = BLE_UUID128_DECLARE(0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE), // Define UUID for writing
 //           .flags = BLE_GATT_CHR_F_WRITE,
 //           .access_cb = device_write},
 //          {0}}},
 //     {0}};
-static const struct ble_gatt_svc_def gatt_svcs[] = {
+    static const struct ble_gatt_svc_def gatt_svcs[] = {
     {.type = BLE_GATT_SVC_TYPE_PRIMARY,
-     .uuid = BLE_UUID128_DECLARE(SERVICE_UUID), // Define UUID for device type
+     .uuid = BLE_UUID128_DECLARE(0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA), // Define UUID for device type
      .characteristics = (struct ble_gatt_chr_def[]){
-         {.uuid = BLE_UUID128_DECLARE(READ_UUID), // Define UUID for reading
+         {.uuid = BLE_UUID128_DECLARE(0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA), // Define UUID for reading
           .flags = BLE_GATT_CHR_F_READ,
           .access_cb = device_read},
-         {.uuid = BLE_UUID128_DECLARE(WRITE_UUID), // Define UUID for writing
+         {.uuid = BLE_UUID128_DECLARE(0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE), // Define UUID for writing
           .flags = BLE_GATT_CHR_F_WRITE,
           .access_cb = device_write},
          {0}}},
-    {0}};
+    {0}}; // remember that .type of 0 is BLE_GATT_SVC_TYPE_END, so we initialize everything to 0.
 
 // BLE event handling
 static int ble_gap_event(struct ble_gap_event *event, void *arg)
@@ -142,7 +135,8 @@ void ble_app_advertise(void)
     memset(&adv_params, 0, sizeof(adv_params));
     adv_params.conn_mode = BLE_GAP_CONN_MODE_UND; // connectable or non-connectable
     adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN; // discoverable or non-discoverable
-    adv_params.filter_policy = BLE_HCI_SCAN_FILT_USE_WL; // ***USE A WHITELIST***
+    // adv_params.filter_policy = BLE_HCI_SCAN_FILT_USE_WL; // ***USE A WHITELIST***
+    adv_params.filter_policy = BLE_HCI_SCAN_FILT_NO_WL; // ***DONT USE A WHITELIST***
     ble_gap_adv_start(BLE_OWN_ADDR_RANDOM, NULL, BLE_HS_FOREVER, &adv_params, ble_gap_event, NULL);
 }
 

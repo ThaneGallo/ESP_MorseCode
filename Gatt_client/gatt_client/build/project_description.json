@@ -1,7 +1,7 @@
 {
     "version":            "1.1",
     "project_name":       "gatt_client_demo",
-    "project_version":    "721718f-dirty",
+    "project_version":    "ff255bb-dirty",
     "project_path":       "C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_client/gatt_client",
     "idf_path":           "C:/Users/Cooper/esp/v5.3/esp-idf",
     "build_dir":          "C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_client/gatt_client/build",
