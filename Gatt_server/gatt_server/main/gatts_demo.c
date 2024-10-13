@@ -1,4 +1,4 @@
-/*9/2/24*/
+/*10/13/24*/
 
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
@@ -17,32 +17,36 @@
 #include "sdkconfig.h"
 
 #define GATTS_TAG "BLE-Server"
-static uint8_t white_list_count = 0;
+static uint8_t white_list_count = 1;
 
 static const ble_addr_t serverAddr = {
-    .type = 0x01, // Example type value
-    .val = {0xDE, 0xCA, 0xFB, 0xEE, 0xFE, 0xD0}
+    .type = BLE_ADDR_RANDOM, // Example type value
+    .val = {0xDE, 0xCA, 0xFB, 0xEE, 0xFE, 0xD2}
     };
 
 static const ble_addr_t clientAddr = {
-    .type = 0x02, // Example type value
+    .type = BLE_ADDR_RANDOM, // Example type value
     .val = {0xCA, 0xFF, 0xED, 0xBE, 0xEE, 0xEF}
     };
 
 static const ble_addr_t *serverPtr = &serverAddr;
 static const ble_addr_t *clientPtr = &clientAddr;
 
-
-#define SERVICE_UUID 0xCAFE
-#define READ_UUID 0xCAFF
-#define WRITE_UUID  0xDECA
+// old 16 bits
+// #define SERVICE_UUID 0xCAFE
+// #define READ_UUID 0xCAFF
+// #define WRITE_UUID  0xDECA
+// new 128 bits
+#define SERVICE_UUID {0xCAFECAFECAFECAFECAFECAFECAFECAFE} // 128-bit base UUID
+#define READ_UUID {0xCAFFCAFFCAFFCAFFCAFFCAFFCAFFCAFF} // 128-bit base UUID
+#define WRITE_UUID {0xDEBADEBADEBADEBADEBADEBADEBADEBA} // 128-bit base UUID
 
 void ble_app_advertise(void);
 
 // Write data to ESP32 defined as server
 static int device_write(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg)
 {
-    // printf("Data from the client: %.*s\n", ctxt->om->om_len, ctxt->om->om_data);
+    printf("Data from the client: %.*s\n", ctxt->om->om_len, ctxt->om->om_data);
 
     char *data = (char *)ctxt->om->om_data;
     printf("%d\n", strcmp(data, (char *)"LIGHT ON") == 0);
@@ -59,18 +63,30 @@ static int device_read(uint16_t con_handle, uint16_t attr_handle, struct ble_gat
 
 // Array of pointers to other service definitions
 // UUID - Universal Unique Identifier
-static const struct ble_gatt_svc_def gatt_svcs[] = {
+// static const struct ble_gatt_svc_def gatt_svcs[] = {
+//     {.type = BLE_GATT_SVC_TYPE_PRIMARY,
+//      .uuid = BLE_UUID128_DECLARE(0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA), // Define UUID for device type
+//      .characteristics = (struct ble_gatt_chr_def[]){
+//          {.uuid = BLE_UUID128_DECLARE(0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA), // Define UUID for reading
+//           .flags = BLE_GATT_CHR_F_READ,
+//           .access_cb = device_read},
+//          {.uuid = BLE_UUID128_DECLARE(0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE), // Define UUID for writing
+//           .flags = BLE_GATT_CHR_F_WRITE,
+//           .access_cb = device_write},
+//          {0}}},
+//     {0}};
+    static const struct ble_gatt_svc_def gatt_svcs[] = {
     {.type = BLE_GATT_SVC_TYPE_PRIMARY,
-     .uuid = BLE_UUID16_DECLARE(SERVICE_UUID), // Define UUID for device type
+     .uuid = BLE_UUID128_DECLARE(0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA), // Define UUID for device type
      .characteristics = (struct ble_gatt_chr_def[]){
-         {.uuid = BLE_UUID16_DECLARE(READ_UUID), // Define UUID for reading
+         {.uuid = BLE_UUID128_DECLARE(0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA), // Define UUID for reading
           .flags = BLE_GATT_CHR_F_READ,
           .access_cb = device_read},
-         {.uuid = BLE_UUID16_DECLARE(WRITE_UUID), // Define UUID for writing
+         {.uuid = BLE_UUID128_DECLARE(0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE), // Define UUID for writing
           .flags = BLE_GATT_CHR_F_WRITE,
           .access_cb = device_write},
          {0}}},
-    {0}};
+    {0}}; // remember that .type of 0 is BLE_GATT_SVC_TYPE_END, so we initialize everything to 0.
 
 // BLE event handling
 static int ble_gap_event(struct ble_gap_event *event, void *arg)
@@ -80,7 +96,7 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg)
     // Advertise if connected
     case BLE_GAP_EVENT_CONNECT:
         ESP_LOGI(GATTS_TAG, "BLE GAP EVENT CONNECT %s", event->connect.status == 0 ? "OK!" : "FAILED!");
-        if (event->connect.status != 0) // is this even possible?
+        if (event->connect.status != 0) // if no good connection, readvertise
         {
             ble_app_advertise();
         }
@@ -88,13 +104,14 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg)
     // Advertise again after completion of the event
     case BLE_GAP_EVENT_DISCONNECT:
         ESP_LOGI(GATTS_TAG, "BLE GAP EVENT DISCONNECTED"); //breaks after first disconnect 
-        // ble_app_advertise();
+        ble_app_advertise();
         break;
     case BLE_GAP_EVENT_ADV_COMPLETE:
         ESP_LOGI(GATTS_TAG, "BLE GAP EVENT");
         ble_app_advertise();
         break;
     default:
+        ESP_LOGI(GATTS_TAG, "This event is not supported: %u", event->type);
         break;
     }
     return 0;
@@ -118,20 +135,28 @@ void ble_app_advertise(void)
     memset(&adv_params, 0, sizeof(adv_params));
     adv_params.conn_mode = BLE_GAP_CONN_MODE_UND; // connectable or non-connectable
     adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN; // discoverable or non-discoverable
-    ble_gap_adv_start(0, NULL, BLE_HS_FOREVER, &adv_params, ble_gap_event, NULL);
+    // adv_params.filter_policy = BLE_HCI_SCAN_FILT_USE_WL; // ***USE A WHITELIST***
+    adv_params.filter_policy = BLE_HCI_SCAN_FILT_NO_WL; // ***DONT USE A WHITELIST***
+    ble_gap_adv_start(BLE_OWN_ADDR_RANDOM, NULL, BLE_HS_FOREVER, &adv_params, ble_gap_event, NULL);
 }
 
 // The application
 void ble_app_on_sync(void)
 {
     uint8_t err;
-    // ble_hs_id_infer_auto(0, &ble_addr_type); // Determines the best address type automatically
+    //ble_hs_id_infer_auto(0, &ble_addr_type); // Determines the best address type automatically
 
-    // err = ble_gap_wl_set(clientPtr, white_list_count); // sets white list for connection to other device
-    // if (err != 0)
-    // {
-    //     ESP_LOGI(GATTS_TAG, "BLE gap set whitelist failed");
-    // }
+    err = ble_hs_id_set_rnd(serverPtr->val); 
+    if (err != 0)
+    {
+        ESP_LOGI(GATTS_TAG, "BLE gap set random address failed %d", err);
+    }
+
+    err = ble_gap_wl_set(clientPtr, white_list_count); // sets white list for connection to other device
+    if (err != 0)
+    {
+        ESP_LOGI(GATTS_TAG, "BLE gap set whitelist failed %d", err);
+    }
 
     ble_app_advertise(); // Define the BLE connection
 }

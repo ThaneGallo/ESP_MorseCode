@@ -1,6 +1,26 @@
 {
   "C_Cpp.intelliSenseEngine": "default",
   "idf.flashType": "UART",
-  "idf.portWin": "COM3",
-  "idf.adapterTargetName": "esp32"
+  "idf.portWin": "COM5",
+  "idf.adapterTargetName": "esp32",
+  "files.associations": {
+    "*.c": "c",
+    "task.h": "c",
+    "gpio.h": "c",
+    "ble_hs.h": "c",
+    "cstdint": "c",
+    "*.inc": "c",
+    "esp_bt.h": "c",
+    "esp_log.h": "c",
+    "esp_event.h": "c",
+    "complex": "c",
+    "*.tcc": "c",
+    "fstream": "c",
+    "iomanip": "c",
+    "istream": "c",
+    "ostream": "c",
+    "regex": "c",
+    "array": "c",
+    "morse_functions.h": "c"
+  }
 }
