@@ -8,6 +8,9 @@
     "ble_svc_gatt.h": "c",
     "ble_svc_gap.h": "c",
     "nimble_port_freertos.h": "c",
-    "nimble_port.h": "c"
+    "nimble_port.h": "c",
+    "esp_nimble_hci.h": "c",
+    "nvs_flash.h": "c",
+    "event_groups.h": "c"
   }
 }

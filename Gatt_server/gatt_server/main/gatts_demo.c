@@ -1,4 +1,4 @@
-/*10/13/24*/
+/*10/15/24*/
 
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
@@ -16,6 +16,7 @@
 #include "services/gatt/ble_svc_gatt.h"
 #include "sdkconfig.h"
 
+
 #define GATTS_TAG "BLE-Server"
 static uint8_t white_list_count = 1;
 
@@ -31,6 +32,21 @@ static const ble_addr_t clientAddr = {
 
 static const ble_addr_t *serverPtr = &serverAddr;
 static const ble_addr_t *clientPtr = &clientAddr;
+
+// ________________________________________________________________________________________
+// #define MBUF_PKTHDR_OVERHEAD    sizeof(struct os_mbuf_pkthdr) + sizeof(struct user_hdr)
+// #define MBUF_MEMBLOCK_OVERHEAD  sizeof(struct os_mbuf) + MBUF_PKTHDR_OVERHEAD
+
+// #define MBUF_NUM_MBUFS      (32)
+// #define MBUF_PAYLOAD_SIZE   (64)
+// #define MBUF_BUF_SIZE       OS_ALIGN(MBUF_PAYLOAD_SIZE, 4)
+// #define MBUF_MEMBLOCK_SIZE  (MBUF_BUF_SIZE + MBUF_MEMBLOCK_OVERHEAD)
+// #define MBUF_MEMPOOL_SIZE   OS_MEMPOOL_SIZE(MBUF_NUM_MBUFS, MBUF_MEMBLOCK_SIZE)
+// struct os_mbuf_pool g_mbuf_pool;
+// struct os_mempool g_mbuf_mempool;
+// os_membuf_t g_mbuf_buffer[MBUF_MEMPOOL_SIZE];
+static struct os_mbuf *morse_data_buf;
+// __________________________________________________________________________________________
 
 // old 16 bits
 // #define SERVICE_UUID 0xCAFE
@@ -51,37 +67,58 @@ static int device_write(uint16_t conn_handle, uint16_t attr_handle, struct ble_g
     char *data = (char *)ctxt->om->om_data;
     printf("%d\n", strcmp(data, (char *)"LIGHT ON") == 0);
 
+    //override the read characteristic with data ctxt->om->om_data, at length
+
     return 0;
 }
 
 // Read data from ESP32 defined as server
-static int device_read(uint16_t con_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg)
+// static int device_read(uint16_t con_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg)
+// {
+//     os_mbuf_append(ctxt->om, "Data from the server", strlen("Data from the server"));
+//     //os_mbuf_append(ctxt->om, const pointer to data location, length of data);
+//     return 0;
+// }
+
+// Read or write data from ESP32 defined as server
+static int device_morse(uint16_t con_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg)
 {
-    os_mbuf_append(ctxt->om, "Data from the server", strlen("Data from the server"));
+    int rc;
+    switch(ctxt->op) {
+        case BLE_GATT_ACCESS_OP_READ_CHR: {
+            //os_mbuf_append(ctxt->om, "Data from the server", strlen("Data from the server"));
+            //rc = os_mbuf_copydata(morse_data_buf, 0, morse_data_buf->om_len, ctxt->om);
+            rc = os_mbuf_append(ctxt->om, morse_data_buf->om_data, morse_data_buf->om_len);
+            printf("Data requested by client: %.*s\n", morse_data_buf->om_len, morse_data_buf->om_data);
+            return rc;
+        }
+        case BLE_GATT_ACCESS_OP_WRITE_CHR: {
+            printf("Data from the client: %.*s\n", ctxt->om->om_len, ctxt->om->om_data);
+            rc = os_mbuf_copyinto(morse_data_buf, 0, ctxt->om->om_data, ctxt->om->om_len);
+            // if (rc != 0) {
+            //     return rc;
+            // }
+            return rc; // if we do anything after mbuf_copyinto in the future, maybe we add back the if statement
+        }
+        default: {
+            printf("Bad Op: %u\n", ctxt->op);
+            return ctxt->op; // this shouldn't ever come up in our usages.
+        }
+    }
+    
+    //os_mbuf_append(ctxt->om, const pointer to data location, length of data);
     return 0;
 }
 
 // Array of pointers to other service definitions
 // UUID - Universal Unique Identifier
-// static const struct ble_gatt_svc_def gatt_svcs[] = {
-//     {.type = BLE_GATT_SVC_TYPE_PRIMARY,
-//      .uuid = BLE_UUID128_DECLARE(0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA), // Define UUID for device type
-//      .characteristics = (struct ble_gatt_chr_def[]){
-//          {.uuid = BLE_UUID128_DECLARE(0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA), // Define UUID for reading
-//           .flags = BLE_GATT_CHR_F_READ,
-//           .access_cb = device_read},
-//          {.uuid = BLE_UUID128_DECLARE(0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE), // Define UUID for writing
-//           .flags = BLE_GATT_CHR_F_WRITE,
-//           .access_cb = device_write},
-//          {0}}},
-//     {0}};
-    static const struct ble_gatt_svc_def gatt_svcs[] = {
+static const struct ble_gatt_svc_def gatt_svcs[] = {
     {.type = BLE_GATT_SVC_TYPE_PRIMARY,
      .uuid = BLE_UUID128_DECLARE(0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA), // Define UUID for device type
      .characteristics = (struct ble_gatt_chr_def[]){
          {.uuid = BLE_UUID128_DECLARE(0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA), // Define UUID for reading
-          .flags = BLE_GATT_CHR_F_READ,
-          .access_cb = device_read},
+          .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE,
+          .access_cb = device_morse},
          {.uuid = BLE_UUID128_DECLARE(0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE), // Define UUID for writing
           .flags = BLE_GATT_CHR_F_WRITE,
           .access_cb = device_write},
@@ -156,6 +193,15 @@ void ble_app_on_sync(void)
     if (err != 0)
     {
         ESP_LOGI(GATTS_TAG, "BLE gap set whitelist failed %d", err);
+    }
+
+    char greetings[] = "Hello World!";
+    char *initial_buf_data = greetings;
+    uint8_t initial_buf_len = 13;
+    err = os_mbuf_copyinto(morse_data_buf, 0, initial_buf_data, initial_buf_len);
+    if (err != 0)
+    {
+        ESP_LOGI(GATTS_TAG, "initial mbuf data fail %d", err);
     }
 
     ble_app_advertise(); // Define the BLE connection
