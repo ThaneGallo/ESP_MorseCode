@@ -1,4 +1,4 @@
-﻿/*modified 10/15/2024*/
+﻿/*modified 10/27/2024*/
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -27,6 +27,7 @@
 #include <stdio.h>
 
 #include "morse_functions.h"
+#include "testing_functions.h"
 
 
 static uint8_t white_list_count = 1;
@@ -82,17 +83,19 @@ static struct ble_gap_conn_desc *server_desc_ptr = &server_desc;
 // static struct ble_gatt_svc server_service;
 // static struct ble_gatt_svc *server_service_ptr = &server_service;
 
-#define CHARACTERISTIC_ARR_MAX 2
+#define CHARACTERISTIC_ARR_MAX 1
 // static struct ble_gatt_chr *characteristics[CHARACTERISTIC_ARR_MAX]; // to store the characteristics
 static uint8_t characteristic_count = 0;
 
-typedef struct ble_profile
-{
-    const struct ble_gap_conn_desc *conn_desc;
-    const struct ble_gatt_svc *service;
-    // struct ble_gatt_chr characteristic[CHARACTERISTIC_ARR_MAX]; // characteristic array holds all the characteristics.
-    struct ble_gatt_chr *characteristic; // characteristic array holds all the characteristics.
-} ble_profile;
+// typedef struct ble_profile
+// {
+//     const struct ble_gap_conn_desc *conn_desc;
+//     const struct ble_gatt_svc *service;
+//     // struct ble_gatt_chr characteristic[CHARACTERISTIC_ARR_MAX]; // characteristic array holds all the characteristics.
+//     struct ble_gatt_chr *characteristic; // characteristic array holds all the characteristics.
+// } ble_profile;
+
+static struct ble_profile *ble_profile1;
 
 // DISCOVERY PARAMETERS FOR GAP SEARCH
 static struct ble_gap_disc_params disc_params = {
@@ -109,9 +112,9 @@ static struct ble_gap_disc_params disc_params = {
 // #define SERVICE_UUID 0xCAFE
 // #define READ_UUID 0xCAFF
 // #define WRITE_UUID 0xDECA
-static uint8_t SERVICE_UUID[16] = {0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA};
-static uint8_t READ_UUID[16] = {0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA};
-static uint8_t WRITE_UUID[16] = {0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE};
+// static uint8_t SERVICE_UUID[16] = {0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA};
+// static uint8_t READ_UUID[16] = {0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA};
+// static uint8_t WRITE_UUID[16] = {0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE};
 
 // static uint8_t write_val = WRITE_UUID;
 // static uint8_t service_val = SERVICE_UUID;
@@ -274,7 +277,44 @@ static void IRAM_ATTR gpio_send_event_handler(void *arg)
     mess_buf_end = 0;
 }
 
+// /**
+//  * Callback function for gatt read events.
+//  */
+// static int ble_gatt_read_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *error, struct ble_gatt_attr *attr, void *arg) {
+//     // READ EVENTS
+//     if(error->status != 0) {
+//         ESP_DRAM_LOGI(DEBUG_TAG, "ble_gatt_disc_attr_cb error = [handle, status] = [%d, %d]", error->att_handle, error->status);
+//         return -1;
+//     }
+//     // grab the data and print it.
+    //     ESP_DRAM_LOGI(MORSE_TAG, "Data from the client: %.*s\n", attr->om->om_len, attr->om->om_data);
+//     return 0;
+// }
 
+/**
+ * When read button pressed, read the attribute from the server.
+ * Always pass in the profile_ptr as a void argument.
+ */
+static void IRAM_ATTR gpio_read_event_handler(void *arg) {
+    ESP_DRAM_LOGI(DEBUG_TAG, "start of read_event");
+    // struct ble_profile *profile_ptr = (struct ble_profile *)arg;
+    // if(!profile_ptr) {
+    //     ESP_DRAM_LOGI(DEBUG_TAG, "profile_ptr is read_event is NULL");
+    //     return;
+    // }
+    if(!ble_profile1) {
+        ESP_DRAM_LOGI(DEBUG_TAG, "ble_profile is read_event is NULL");
+        return;
+    }
+
+    ESP_DRAM_LOGI(DEBUG_TAG, "[conn_handle, val_handle] = [%d, %d]", ble_profile1->conn_desc->conn_handle, ble_profile1->characteristic->val_handle);
+    int rc = poll_event_set_flag(POLL_EVENT_READ_FLAG, true);
+    // int rc = ble_gattc_read(ble_profile1->conn_desc->conn_handle, ble_profile1->characteristic->val_handle, ble_gatt_read_chr_cb, arg);
+    if(rc != 0) {
+        ESP_DRAM_LOGI(ERROR_TAG, "read_event error rc = %d", rc);
+        return;
+    }
+}
 /**
  * Callback function for gatt characteristic discovery.
  */
@@ -324,6 +364,7 @@ static int ble_gatt_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *er
         ESP_LOGI(ERROR_TAG, "ble_gatt_chr_cb: characteristic count exceeded maximum for handle %u", conn_handle);
         return 0x69; // our own error code for if the characteristic count has exceeded
     }
+
     return 0;
 }
 
@@ -397,34 +438,6 @@ static int ble_gatt_disc_svc_cb(uint16_t conn_handle, const struct ble_gatt_erro
         return err;
     }
 
-    // ble_uuid16_t *read_uuid;
-    // read_uuid = malloc(sizeof(ble_uuid16_t));
-
-    // read_uuid->u.type = BLE_UUID_TYPE_16;
-    // read_uuid->value = READ_UUID;
-
-    //  ble_uuid16_t *write_uuid;
-    // write_uuid = malloc(sizeof(ble_uuid16_t));
-
-    // write_uuid->u.type = BLE_UUID_TYPE_16;
-    // write_uuid->value = WRITE_UUID;
-
-    // ESP_LOGI(MORSE_TAG, "before disc by uuid");
-
-    // err = ble_gattc_disc_chrs_by_uuid(conn_handle, service->start_handle, service->end_handle, &read_uuid->u, ble_gatt_chr_cb, profile_ptr);
-    // if (err != 0)
-    // {
-    //     ESP_LOGI(ERROR_TAG, "ble_gattc_disc READUUID: error has occured: %u", err);
-    //     return err;
-    // }
-
-    // err = ble_gattc_disc_chrs_by_uuid(conn_handle, service->start_handle, service->end_handle, &write_uuid->u, ble_gatt_chr_cb, profile_ptr);
-    // if (err != 0)
-    // {
-    //     ESP_LOGI(ERROR_TAG, "ble_gattc_disc READUUID: error has occured: %u", err);
-    //     return err;
-    // }
-
     return 0;
 }
 
@@ -452,6 +465,9 @@ void gatt_conn_init(struct ble_profile *profile)
         ESP_LOGI(MORSE_TAG, "gattc service discovery failed, err = %u", err);
         break;
     }
+    // save the global version of the profile pointer
+    ble_profile1 = profile;
+    poll_event_set_profile_ptr(ble_profile1);
 }
 
 /**
@@ -589,7 +605,8 @@ void gpio_setup()
     // takes end time of button1 pess
     gpio_isr_handler_add(GPIO_INPUT_IO_END, gpio_end_event_handler, (void *)GPIO_INPUT_IO_END);
 
-    gpio_isr_handler_add(GPIO_INPUT_IO_SEND, gpio_send_event_handler, (void *)GPIO_INPUT_IO_SEND);
+    // gpio_isr_handler_add(GPIO_INPUT_IO_SEND, gpio_send_event_handler, (void *)GPIO_INPUT_IO_SEND);
+    gpio_isr_handler_add(GPIO_INPUT_IO_SEND, gpio_read_event_handler, (void *)GPIO_INPUT_IO_SEND);
 }
 
 void host_task(void *param)
@@ -599,7 +616,8 @@ void host_task(void *param)
     int cnt = 0;
     while (1)
     {
-        printf("cnt: %d\n", cnt++);
+        //printf("cnt: %d\n", cnt++);
+        ESP_LOGI(MORSE_TAG,"cnt: %d\n", cnt++);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
     return;
@@ -674,12 +692,14 @@ void ble_client_setup()
 
     ble_hs_cfg.sync_cb = ble_app_on_sync;
 
+    xTaskCreate(poll_event_task, "Poll Event Task", 2048, NULL, 5, NULL);
+
     // starts first task
     nimble_port_freertos_init(host_task);
 }
 
 void app_main(void)
 {
-    // gpio_setup();
+    gpio_setup();
     ble_client_setup();
 }

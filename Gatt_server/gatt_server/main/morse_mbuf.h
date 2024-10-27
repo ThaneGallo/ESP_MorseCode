@@ -15,7 +15,7 @@
 void mbuf_create_pool();
 
 /**
- * Return a pointer to the memory buffer created in the morse_mbuf.c source file
+ * Return a pointer to the memory buffer created in the morse_mbuf.c source file.
  * 
  * @return  A pointer to the mbuf.
  */

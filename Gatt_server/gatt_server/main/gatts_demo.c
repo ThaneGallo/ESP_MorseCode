@@ -1,4 +1,4 @@
-/*10/23/24*/
+/*10/27/24*/
 
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
@@ -45,27 +45,6 @@ static const ble_addr_t *clientPtr = &clientAddr;
 
 void ble_app_advertise(void);
 
-// Write data to ESP32 defined as server
-static int device_write(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg)
-{
-    printf("Data from the client: %.*s\n", ctxt->om->om_len, ctxt->om->om_data);
-
-    char *data = (char *)ctxt->om->om_data;
-    printf("%d\n", strcmp(data, (char *)"LIGHT ON") == 0);
-
-    //override the read characteristic with data ctxt->om->om_data, at length
-
-    return 0;
-}
-
-// Read data from ESP32 defined as server
-// static int device_read(uint16_t con_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg)
-// {
-//     os_mbuf_append(ctxt->om, "Data from the server", strlen("Data from the server"));
-//     //os_mbuf_append(ctxt->om, const pointer to data location, length of data);
-//     return 0;
-// }
-
 // Read or write data from ESP32 defined as server
 static int device_morse(uint16_t con_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg)
 {
@@ -109,9 +88,6 @@ static const struct ble_gatt_svc_def gatt_svcs[] = {
          {.uuid = BLE_UUID128_DECLARE(0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA), // Define UUID for reading
           .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE,
           .access_cb = device_morse},
-         {.uuid = BLE_UUID128_DECLARE(0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE), // Define UUID for writing
-          .flags = BLE_GATT_CHR_F_WRITE,
-          .access_cb = device_write},
          {0}}},
     {0}}; // remember that .type of 0 is BLE_GATT_SVC_TYPE_END, so we initialize everything to 0.
 
