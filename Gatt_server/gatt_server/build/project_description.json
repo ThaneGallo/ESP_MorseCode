@@ -1,7 +1,7 @@
 {
     "version":            "1.1",
     "project_name":       "gatt_server_demos",
-    "project_version":    "010785f-dirty",
+    "project_version":    "3e8c774-dirty",
     "project_path":       "C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_server/gatt_server",
     "idf_path":           "C:/Users/Cooper/esp/v5.3/esp-idf",
     "build_dir":          "C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_server/gatt_server/build",

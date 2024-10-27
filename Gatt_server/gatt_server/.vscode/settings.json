@@ -1,7 +1,7 @@
 {
   "C_Cpp.intelliSenseEngine": "default",
   "idf.flashType": "UART",
-  "idf.portWin": "COM7",
+  "idf.portWin": "COM5",
   "idf.adapterTargetName": "esp32",
   "files.associations": {
     "esp_gatts_api.h": "c",
@@ -11,6 +11,7 @@
     "nimble_port.h": "c",
     "esp_nimble_hci.h": "c",
     "nvs_flash.h": "c",
-    "event_groups.h": "c"
+    "event_groups.h": "c",
+    "freertos.h": "c"
   }
 }

@@ -1,7 +1,7 @@
 {
   "C_Cpp.intelliSenseEngine": "default",
   "idf.flashType": "UART",
-  "idf.portWin": "COM5",
+  "idf.portWin": "COM3",
   "idf.adapterTargetName": "esp32",
   "files.associations": {
     "*.c": "c",
@@ -21,6 +21,11 @@
     "ostream": "c",
     "regex": "c",
     "array": "c",
-    "morse_functions.h": "c"
+    "morse_functions.h": "c",
+    "format": "c",
+    "freertos.h": "c",
+    "ble_svc_gatt.h": "c",
+    "event_groups.h": "c",
+    "testing_functions.h": "c"
   }
 }
