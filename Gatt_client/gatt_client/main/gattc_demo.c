@@ -1,101 +1,18 @@
-﻿/*modified 10/27/2024*/
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/event_groups.h"
-
-#include "esp_timer.h"
-#include "esp_log.h"
-#include "esp_bt.h"
-#include "esp_event.h"
-#include "esp_nimble_hci.h"
-#include "sdkconfig.h"
-
-#include "driver/gpio.h"
-#include "host/ble_hs.h"
-#include "host/ble_hs_adv.h"
-#include "nvs.h"
-#include "nvs_flash.h"
-#include "nimble/nimble_port.h"
-#include "nimble/nimble_port_freertos.h"
-#include "services/gap/ble_svc_gap.h"
-#include "services/gatt/ble_svc_gatt.h"
-
-#include <stdint.h>
-#include <string.h>
-#include <stdbool.h>
-#include <stdio.h>
-
+﻿/*modified 10/29/2024*/
+#include "common.h"
 #include "morse_functions.h"
 #include "testing_functions.h"
 
-
 static uint8_t white_list_count = 1;
 
-// gpio
-static uint32_t mess_buf_end = 0;
-static uint32_t char_mess_buf_end = 0;
-
-static int64_t start_time;          // time of last valid start
-static int64_t time_last_end_event; // time of last valid end
-static bool input_in_progress;
-
-#define PRESS_LENGTH 1000000 // Hold-time required for dash '-' input. 1 second in microseconds
-#define SPACE_LENGTH 2000000 // Time required between inputs for new character start. 2 seconds in microseconds
-
-// START, END, AND SEND EVENTS
-#define GPIO_INPUT_IO_START 4 // start event sense
-#define GPIO_INPUT_IO_END 5   // end event sense
-#define GPIO_INPUT_IO_SEND 23 // send event sense
-
-#define MESS_BUFFER_LENGTH 2048
-#define CHAR_BUFFER_LENGTH 256
-static uint8_t message_buf[MESS_BUFFER_LENGTH];
-static char char_message_buf[CHAR_BUFFER_LENGTH];
-
-#define ESP_INTR_FLAG_DEFAULT 0
-#define MORSE_TAG "Morse code tag"
-#define DEBUG_TAG "Debugging tag"
-#define ERROR_TAG "||| ERROR |||"
-#define DEBOUNCE_DELAY 50000 // time required between consecutive inputs to prevent debounce issues
-
-// ble address structs and pointers
-static const ble_addr_t server_addr = {
-    .type = BLE_ADDR_RANDOM, // Example type value
-    .val = {0xDE, 0xCA, 0xFB, 0xEE, 0xFE, 0xD2}
-    //.val = {0xD0, 0xFE, 0xEE, 0xFB, 0xCA, 0xDE}
-};
-
-static const ble_addr_t client_addr = {
-    .type = BLE_ADDR_RANDOM, // Example type value
-    .val = {0xCA, 0xFF, 0xED, 0xBE, 0xEE, 0xEF}
-    //.val = {0xEF, 0xEE, 0xBE, 0xED, 0xFF, 0xCA}
-};
-
-static uint8_t ble_addr_type = BLE_OWN_ADDR_RANDOM;
-// const uint8_t *clientaddressVal = &client_addr.val;
-static const ble_addr_t *server_ptr = &server_addr;
-static const ble_addr_t *client_ptr = &client_addr;
-
-static struct ble_gap_conn_desc server_desc;
-static struct ble_gap_conn_desc *server_desc_ptr = &server_desc;
-
-// static struct ble_gatt_svc server_service;
-// static struct ble_gatt_svc *server_service_ptr = &server_service;
-
-#define CHARACTERISTIC_ARR_MAX 1
-// static struct ble_gatt_chr *characteristics[CHARACTERISTIC_ARR_MAX]; // to store the characteristics
-static uint8_t characteristic_count = 0;
-
-// typedef struct ble_profile
-// {
-//     const struct ble_gap_conn_desc *conn_desc;
-//     const struct ble_gatt_svc *service;
-//     // struct ble_gatt_chr characteristic[CHARACTERISTIC_ARR_MAX]; // characteristic array holds all the characteristics.
-//     struct ble_gatt_chr *characteristic; // characteristic array holds all the characteristics.
-// } ble_profile;
 
 static struct ble_profile *ble_profile1;
+
+
+#define CHARACTERISTIC_ARR_MAX 1
+static uint8_t characteristic_count = 0;
+
+
 
 // DISCOVERY PARAMETERS FOR GAP SEARCH
 static struct ble_gap_disc_params disc_params = {
@@ -104,217 +21,34 @@ static struct ble_gap_disc_params disc_params = {
     .itvl = 0,
     .window = 0,
     .filter_policy = BLE_HCI_SCAN_FILT_USE_WL,
-    //.filter_policy = BLE_HCI_SCAN_FILT_USE_WL_INITA, // error code 18.
     //.filter_policy = BLE_HCI_SCAN_FILT_NO_WL, // find all things no whitelist used.
     .limited = 0};
 
-// UUID macros
-// #define SERVICE_UUID 0xCAFE
-// #define READ_UUID 0xCAFF
-// #define WRITE_UUID 0xDECA
-// static uint8_t SERVICE_UUID[16] = {0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA, 0xFE, 0xCA};
-// static uint8_t READ_UUID[16] = {0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA, 0xFF, 0xCA};
-// static uint8_t WRITE_UUID[16] = {0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE, 0xCA, 0xDE};
-
-// static uint8_t write_val = WRITE_UUID;
-// static uint8_t service_val = SERVICE_UUID;
 
 // forward declarations
 static int ble_gatt_disc_svc_cb(uint16_t conn_handle, const struct ble_gatt_error *error, const struct ble_gatt_svc *service, void *arg);
 
-/**
- * Print the contents of both the message and character buffers into the terminal.
- */
-void debugPrintBuffer()
-{
-    int i;
 
-    for (i = 0; i <= mess_buf_end; i++)
-    {
-        ESP_DRAM_LOGD(DEBUG_TAG, "message buffer[%d]: %d", i, message_buf[i]);
-    }
 
-    for (i = 0; i <= char_mess_buf_end; i++)
-    {
-        ESP_DRAM_LOGD(DEBUG_TAG, "character buffer[%d]: %c", i, char_message_buf[i]);
-    }
-}
 
-void debugPrintserver_desc()
+void debug_print_conn_desc(struct ble_gap_conn_desc *conn_desc_ptr)
 {
     // each ble_addr_t has type and val
-    ESP_LOGI(DEBUG_TAG, "our_id_addr: type = %x, val = %x%x%x%x%x%x", server_desc_ptr->our_id_addr.type, server_desc_ptr->our_id_addr.val[0], server_desc_ptr->our_id_addr.val[1],
-             server_desc_ptr->our_id_addr.val[2], server_desc_ptr->our_id_addr.val[3], server_desc_ptr->our_id_addr.val[4], server_desc_ptr->our_id_addr.val[5]);
-    ESP_LOGI(DEBUG_TAG, "peer_id_addr: type = %x, val = %x%x%x%x%x%x", server_desc_ptr->peer_id_addr.type, server_desc_ptr->peer_id_addr.val[0], server_desc_ptr->peer_id_addr.val[1],
-             server_desc_ptr->peer_id_addr.val[2], server_desc_ptr->peer_id_addr.val[3], server_desc_ptr->peer_id_addr.val[4], server_desc_ptr->peer_id_addr.val[5]);
-    ESP_LOGI(DEBUG_TAG, "our_ota_addr: type = %x, val = %x%x%x%x%x%x", server_desc_ptr->our_ota_addr.type, server_desc_ptr->our_ota_addr.val[0], server_desc_ptr->our_ota_addr.val[1],
-             server_desc_ptr->our_id_addr.val[2], server_desc_ptr->our_ota_addr.val[3], server_desc_ptr->our_ota_addr.val[4], server_desc_ptr->our_ota_addr.val[5]);
-    ESP_LOGI(DEBUG_TAG, "peer_ota_addr: type = %x, val = %x%x%x%x%x%x", server_desc_ptr->peer_ota_addr.type, server_desc_ptr->peer_ota_addr.val[0], server_desc_ptr->peer_ota_addr.val[1],
-             server_desc_ptr->peer_ota_addr.val[2], server_desc_ptr->peer_ota_addr.val[3], server_desc_ptr->peer_ota_addr.val[4], server_desc_ptr->peer_ota_addr.val[5]);
+    ESP_LOGI(DEBUG_TAG, "our_id_addr: type = %x, val = %x%x%x%x%x%x", conn_desc_ptr->our_id_addr.type, conn_desc_ptr->our_id_addr.val[0], conn_desc_ptr->our_id_addr.val[1],
+             conn_desc_ptr->our_id_addr.val[2], conn_desc_ptr->our_id_addr.val[3], conn_desc_ptr->our_id_addr.val[4], conn_desc_ptr->our_id_addr.val[5]);
+    ESP_LOGI(DEBUG_TAG, "peer_id_addr: type = %x, val = %x%x%x%x%x%x", conn_desc_ptr->peer_id_addr.type, conn_desc_ptr->peer_id_addr.val[0], conn_desc_ptr->peer_id_addr.val[1],
+             conn_desc_ptr->peer_id_addr.val[2], conn_desc_ptr->peer_id_addr.val[3], conn_desc_ptr->peer_id_addr.val[4], conn_desc_ptr->peer_id_addr.val[5]);
+    ESP_LOGI(DEBUG_TAG, "our_ota_addr: type = %x, val = %x%x%x%x%x%x", conn_desc_ptr->our_ota_addr.type, conn_desc_ptr->our_ota_addr.val[0], conn_desc_ptr->our_ota_addr.val[1],
+             conn_desc_ptr->our_id_addr.val[2], conn_desc_ptr->our_ota_addr.val[3], conn_desc_ptr->our_ota_addr.val[4], conn_desc_ptr->our_ota_addr.val[5]);
+    ESP_LOGI(DEBUG_TAG, "peer_ota_addr: type = %x, val = %x%x%x%x%x%x", conn_desc_ptr->peer_ota_addr.type, conn_desc_ptr->peer_ota_addr.val[0], conn_desc_ptr->peer_ota_addr.val[1],
+             conn_desc_ptr->peer_ota_addr.val[2], conn_desc_ptr->peer_ota_addr.val[3], conn_desc_ptr->peer_ota_addr.val[4], conn_desc_ptr->peer_ota_addr.val[5]);
 
-    // ESP_LOGI(DEBUG_TAG, "our_id_addr: type = %x", server_desc_ptr->our_id_addr.type); // Control test debug
+    // ESP_LOGI(DEBUG_TAG, "our_id_addr: type = %x", conn_desc_ptr->our_id_addr.type); // Control test debug
 }
 
-/**
- * Converts message_buf values into corresponding characterBuffer values.
- */
-void encodeMorseCode()
-{
-    /*
-    - For each bit-letter-combo in the message_buf array,
-    - grab the bits for each letter individually, stopping when you reach the '2' at the end of the input
-    - translate that into the corresponding character using getLetterMorseCode()
-    - save that character into the character buffer
-    */
 
-    int currentIndex = 0; // index to iterate over
 
-    // check for end condition, the 2nd '2' after a letter. "letter-bits ... 2 2"
-    while (message_buf[currentIndex] != 2)
-    {
-        int charDecimal = 1; // to add leading 1 to binary value
 
-        // decode each letter until the first 2 is reached.
-        while (message_buf[currentIndex] != 2)
-        {
-            // decodes into decimal value of morse code w leading 1
-            charDecimal = (charDecimal << 1) + message_buf[currentIndex];
-            currentIndex++;
-        }
-        // currentIndex set to position after the end of a letter, AKA just after the '2' that marks the end of the letter-bits.
-        currentIndex++;
-
-        // translate and store the corresponding character into the character buffer
-        char_message_buf[char_mess_buf_end] = getLetterMorseCode(charDecimal);
-        char_mess_buf_end++;
-
-        ESP_DRAM_LOGI(MORSE_TAG, "Character decoded: %c", getLetterMorseCode(charDecimal));
-        // ESP_DRAM_LOGI(MORSE_TAG, "value at buffer start index :%d", message_buf[startIndex]); // what int is at the start of the next loop
-    }
-}
-
-static void IRAM_ATTR gpio_start_event_handler(void *arg)
-{
-    // ignore false readings. Wait long enough for at least debounce delay.
-    // and never allow for writing beyond the message buffer size, leaving room for the transmission end condition "2 2"
-    if (((esp_timer_get_time() - start_time) < DEBOUNCE_DELAY) || input_in_progress || (mess_buf_end >= MESS_BUFFER_LENGTH - 2))
-    {
-        return;
-    }
-    input_in_progress = 1; // to prevent multipress
-
-    start_time = esp_timer_get_time(); // store time of last event
-
-    if ((start_time - time_last_end_event > SPACE_LENGTH) && (mess_buf_end != 0))
-    {
-        message_buf[mess_buf_end] = 2;
-        mess_buf_end++;
-        ESP_DRAM_LOGI(MORSE_TAG, "2 placed in buffer in start event");
-    }
-}
-
-static void IRAM_ATTR gpio_end_event_handler(void *arg)
-{
-    // ignore false readings. Wait long enough for at least debounce delay. Ensure this is called only after a valid start press.
-    if (((esp_timer_get_time() - time_last_end_event) < DEBOUNCE_DELAY) || !input_in_progress)
-    {
-        return;
-    }
-
-    time_last_end_event = esp_timer_get_time(); // store time of last event
-
-    // ESP_DRAM_LOGI(MORSE_TAG, "last end time: %d", time_last_end_event);
-    // ESP_DRAM_LOGI(MORSE_TAG, "time elapsed: %d", time_last_end_event - start_time);
-
-    if (PRESS_LENGTH < (time_last_end_event - start_time))
-    {
-        // must hold button for at least press_length to get a 1
-        message_buf[mess_buf_end] = 1;
-        mess_buf_end++;
-        // ESP_DRAM_LOGI(MORSE_TAG, "2 in buffer");
-    }
-    else
-    {
-        // 0 if button held for less than press_length time
-        message_buf[mess_buf_end] = 0;
-        mess_buf_end++;
-        // ESP_DRAM_LOGI(MORSE_TAG, "1 in buffer");
-    }
-
-    input_in_progress = 0;
-
-    ESP_DRAM_LOGW(MORSE_TAG, "placed in buffer: %d", message_buf[mess_buf_end - 1]);
-}
-
-static void IRAM_ATTR gpio_send_event_handler(void *arg)
-{
-    static int64_t lMillis = 0; // time since last send.
-    uint8_t i;
-
-    // ignore false readings. Wait at least 20ms before sending again.
-    if (((esp_timer_get_time() - lMillis) < DEBOUNCE_DELAY) || input_in_progress)
-        return;
-
-    lMillis = esp_timer_get_time();
-
-    // end each message with 2 twos
-    if (mess_buf_end != 0)
-    {
-        message_buf[mess_buf_end++] = 2;
-        message_buf[mess_buf_end] = 2;
-
-        encodeMorseCode();
-
-        ESP_DRAM_LOGI(MORSE_TAG, "character buffer end: %d", char_mess_buf_end);
-
-        for (i = 0; i < char_mess_buf_end; i++)
-        {
-            ESP_DRAM_LOGI(MORSE_TAG, "character buffer[%d]: %c", i, char_message_buf[i]);
-        }
-    }
-
-    char_mess_buf_end = 0;
-    mess_buf_end = 0;
-}
-
-// /**
-//  * Callback function for gatt read events.
-//  */
-// static int ble_gatt_read_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *error, struct ble_gatt_attr *attr, void *arg) {
-//     // READ EVENTS
-//     if(error->status != 0) {
-//         ESP_DRAM_LOGI(DEBUG_TAG, "ble_gatt_disc_attr_cb error = [handle, status] = [%d, %d]", error->att_handle, error->status);
-//         return -1;
-//     }
-//     // grab the data and print it.
-    //     ESP_DRAM_LOGI(MORSE_TAG, "Data from the client: %.*s\n", attr->om->om_len, attr->om->om_data);
-//     return 0;
-// }
-
-/**
- * When read button pressed, read the attribute from the server.
- * Always pass in the profile_ptr as a void argument.
- */
-static void IRAM_ATTR gpio_read_event_handler(void *arg) {
-    ESP_DRAM_LOGI(DEBUG_TAG, "start of read_event");
-    // struct ble_profile *profile_ptr = (struct ble_profile *)arg;
-    // if(!profile_ptr) {
-    //     ESP_DRAM_LOGI(DEBUG_TAG, "profile_ptr is read_event is NULL");
-    //     return;
-    // }
-    if(!ble_profile1) {
-        ESP_DRAM_LOGI(DEBUG_TAG, "ble_profile is read_event is NULL");
-        return;
-    }
-
-    ESP_DRAM_LOGI(DEBUG_TAG, "[conn_handle, val_handle] = [%d, %d]", ble_profile1->conn_desc->conn_handle, ble_profile1->characteristic->val_handle);
-    int rc = poll_event_set_flag(POLL_EVENT_READ_FLAG, true);
-    // int rc = ble_gattc_read(ble_profile1->conn_desc->conn_handle, ble_profile1->characteristic->val_handle, ble_gatt_read_chr_cb, arg);
-    if(rc != 0) {
-        ESP_DRAM_LOGI(ERROR_TAG, "read_event error rc = %d", rc);
-        return;
-    }
-}
 /**
  * Callback function for gatt characteristic discovery.
  */
@@ -414,7 +148,6 @@ static int ble_gatt_disc_svc_cb(uint16_t conn_handle, const struct ble_gatt_erro
         ESP_LOGI(DEBUG_TAG, "uuid of generic service = %04x", service->uuid.u16.value);
         return 0; // these are generic characteristics and attributes, per our google investigation
     }
-    // server_service_ptr = profile_ptr->service; // globally save the service information to server_service_ptr.
 
     //ESP_LOGI(DEBUG_TAG, "uuid of service = %04x", service->uuid.u16.value);
 
@@ -612,14 +345,6 @@ void gpio_setup()
 void host_task(void *param)
 {
     nimble_port_run();
-    // just ticks tbh
-    int cnt = 0;
-    while (1)
-    {
-        //printf("cnt: %d\n", cnt++);
-        ESP_LOGI(MORSE_TAG,"cnt: %d\n", cnt++);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
     return;
 }
 
@@ -650,17 +375,20 @@ void ble_app_on_sync(void)
     }
     
     uint8_t err;
-    err = ble_hs_id_set_rnd(client_ptr->val);
+    err = ble_hs_id_set_rnd(ble_client_addr_return()->val);
     if (err != 0)
     {
         ESP_LOGI(MORSE_TAG, "BLE gap set random address failed %d", err);
     }
 
-    err = ble_gap_wl_set(server_ptr, white_list_count); // sets white list for connection to other device
+    err = ble_gap_wl_set(ble_server_addr_return(), white_list_count); // sets white list for connection to other device
     if (err != 0)
     {
         ESP_LOGI(MORSE_TAG, "BLE gap set whitelist failed");
     }
+
+
+    uint8_t ble_addr_type = BLE_OWN_ADDR_RANDOM;
 
     // begin gap discovery
     err = ble_gap_disc(ble_addr_type, 10 * 1000, &disc_params, ble_gap_event, profile);

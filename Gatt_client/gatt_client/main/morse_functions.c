@@ -1,7 +1,42 @@
-// #include <stdio.h> // we only need this one if we decide to add print statements or similar in here.
-#include "morse_functions.h"
+#include <stdio.h> // we only need this one if we decide to add print statements or similar in here.
+#include <stdint.h>
+#include <stdbool.h>
 
-char getLetterMorseCode(int decimalValue)
+#include "esp_log.h"
+#include "common.h"
+#include "morse_functions.h"
+#include "testing_functions.h"
+
+
+static uint32_t mess_buf_end = 0;
+static uint32_t char_mess_buf_end = 0;
+
+static int64_t start_time;          // time of last valid start
+static int64_t time_last_end_event; // time of last valid end
+static bool input_in_progress;
+
+static uint8_t message_buf[MESS_BUFFER_LENGTH];
+static char char_message_buf[CHAR_BUFFER_LENGTH];
+
+static struct ble_profile *ble_profile1;
+
+
+void debug_print_buffer()
+{
+    int i;
+
+    for (i = 0; i <= mess_buf_end; i++)
+    {
+        ESP_DRAM_LOGD(DEBUG_TAG, "message buffer[%d]: %d", i, message_buf[i]);
+    }
+
+    for (i = 0; i <= char_mess_buf_end; i++)
+    {
+        ESP_DRAM_LOGD(DEBUG_TAG, "character buffer[%d]: %c", i, char_message_buf[i]);
+    }
+}
+
+char get_letter_morse_code(int decimalValue)
 {
     /*
     decimalValue has a leading 1 to determine the start of the morse input.
@@ -122,5 +157,150 @@ char getLetterMorseCode(int decimalValue)
     default:
         // Handle unknown cases
         return '=';
+    }
+}
+
+void encode_morse_code()
+{
+    /*
+    - For each bit-letter-combo in the message_buf array,
+    - grab the bits for each letter individually, stopping when you reach the '2' at the end of the input
+    - translate that into the corresponding character using getLetterMorseCode()
+    - save that character into the character buffer
+    */
+
+    int currentIndex = 0; // index to iterate over
+
+    // check for end condition, the 2nd '2' after a letter. "letter-bits ... 2 2"
+    while (message_buf[currentIndex] != 2)
+    {
+        int charDecimal = 1; // to add leading 1 to binary value
+
+        // decode each letter until the first 2 is reached.
+        while (message_buf[currentIndex] != 2)
+        {
+            // decodes into decimal value of morse code w leading 1
+            charDecimal = (charDecimal << 1) + message_buf[currentIndex];
+            currentIndex++;
+        }
+        // currentIndex set to position after the end of a letter, AKA just after the '2' that marks the end of the letter-bits.
+        currentIndex++;
+
+        // translate and store the corresponding character into the character buffer
+        char_message_buf[char_mess_buf_end] = get_letter_morse_code(charDecimal);
+        char_mess_buf_end++;
+
+        ESP_DRAM_LOGI(MORSE_TAG, "Character decoded: %c", get_letter_morse_code(charDecimal));
+        // ESP_DRAM_LOGI(MORSE_TAG, "value at buffer start index :%d", message_buf[startIndex]); // what int is at the start of the next loop
+    }
+}
+
+
+static void IRAM_ATTR gpio_start_event_handler(void *arg)
+{
+    // ignore false readings. Wait long enough for at least debounce delay.
+    // and never allow for writing beyond the message buffer size, leaving room for the transmission end condition "2 2"
+    if (((esp_timer_get_time() - start_time) < DEBOUNCE_DELAY) || input_in_progress || (mess_buf_end >= MESS_BUFFER_LENGTH - 2))
+    {
+        return;
+    }
+    input_in_progress = 1; // to prevent multipress
+
+    start_time = esp_timer_get_time(); // store time of last event
+
+    if ((start_time - time_last_end_event > SPACE_LENGTH) && (mess_buf_end != 0))
+    {
+        message_buf[mess_buf_end] = 2;
+        mess_buf_end++;
+        ESP_DRAM_LOGI(MORSE_TAG, "2 placed in buffer in start event");
+    }
+}
+
+static void IRAM_ATTR gpio_end_event_handler(void *arg)
+{
+    // ignore false readings. Wait long enough for at least debounce delay. Ensure this is called only after a valid start press.
+    if (((esp_timer_get_time() - time_last_end_event) < DEBOUNCE_DELAY) || !input_in_progress)
+    {
+        return;
+    }
+
+    time_last_end_event = esp_timer_get_time(); // store time of last event
+
+    // ESP_DRAM_LOGI(MORSE_TAG, "last end time: %d", time_last_end_event);
+    // ESP_DRAM_LOGI(MORSE_TAG, "time elapsed: %d", time_last_end_event - start_time);
+
+    if (PRESS_LENGTH < (time_last_end_event - start_time))
+    {
+        // must hold button for at least press_length to get a 1
+        message_buf[mess_buf_end] = 1;
+        mess_buf_end++;
+        // ESP_DRAM_LOGI(MORSE_TAG, "2 in buffer");
+    }
+    else
+    {
+        // 0 if button held for less than press_length time
+        message_buf[mess_buf_end] = 0;
+        mess_buf_end++;
+        // ESP_DRAM_LOGI(MORSE_TAG, "1 in buffer");
+    }
+
+    input_in_progress = 0;
+
+    ESP_DRAM_LOGW(MORSE_TAG, "placed in buffer: %d", message_buf[mess_buf_end - 1]);
+}
+
+static void IRAM_ATTR gpio_send_event_handler(void *arg)
+{
+    static int64_t lMillis = 0; // time since last send.
+    uint8_t i;
+
+    // ignore false readings. Wait at least 20ms before sending again.
+    if (((esp_timer_get_time() - lMillis) < DEBOUNCE_DELAY) || input_in_progress)
+        return;
+
+    lMillis = esp_timer_get_time();
+
+    // end each message with 2 twos
+    if (mess_buf_end != 0)
+    {
+        message_buf[mess_buf_end++] = 2;
+        message_buf[mess_buf_end] = 2;
+
+        encode_morse_code();
+
+        ESP_DRAM_LOGI(MORSE_TAG, "character buffer end: %d", char_mess_buf_end);
+
+        for (i = 0; i < char_mess_buf_end; i++)
+        {
+            ESP_DRAM_LOGI(MORSE_TAG, "character buffer[%d]: %c", i, char_message_buf[i]);
+        }
+    }
+
+    char_mess_buf_end = 0;
+    mess_buf_end = 0;
+}
+
+/**
+ * When read button pressed, read the attribute from the server.
+ * Always pass in the profile_ptr as a void argument.
+ */
+static void IRAM_ATTR gpio_read_event_handler(void *arg) {
+    ESP_DRAM_LOGI(DEBUG_TAG, "start of read_event");
+    // struct ble_profile *profile_ptr = (struct ble_profile *)arg;
+    // if(!profile_ptr) {
+    //     ESP_DRAM_LOGI(DEBUG_TAG, "profile_ptr is read_event is NULL");
+    //     return;
+    // }
+    if(!ble_profile1) {
+        ESP_DRAM_LOGI(DEBUG_TAG, "ble_profile is read_event is NULL");
+        return;
+    }
+
+    ESP_DRAM_LOGI(DEBUG_TAG, "[conn_handle, val_handle] = [%d, %d]", ble_profile1->conn_desc->conn_handle, ble_profile1->characteristic->val_handle);
+    int rc = poll_event_set_flag(POLL_EVENT_READ_FLAG, true);
+    // int rc = ble_gattc_read(ble_profile1->conn_desc->conn_handle, ble_profile1->characteristic->val_handle, ble_gatt_read_chr_cb, arg);
+    if(rc != 0) {
+        ESP_DRAM_LOGI(ERROR_TAG, "read_event error rc = %d", rc);
+        return;
     }
 }

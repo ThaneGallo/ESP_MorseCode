@@ -1,32 +1,9 @@
 // #include <stdio.h> // we only need this one if we decide to add print statements or similar in here.
 #include "testing_functions.h"
+#include "common.h"
 
-
-#define MORSE_TAG "Morse code tag"
-#define DEBUG_TAG "Debugging tag"
-#define ERROR_TAG "||| ERROR |||"
-
-// DELETE THIS
-// ____________________________________________________
-#include "esp_timer.h"
-#include "esp_log.h"
-#include "esp_bt.h"
-#include "esp_event.h"
-#include "esp_nimble_hci.h"
-#include "sdkconfig.h"
-
-#include "driver/gpio.h"
-#include "host/ble_hs.h"
-#include "host/ble_hs_adv.h"
-#include "nvs.h"
-#include "nvs_flash.h"
-#include "nimble/nimble_port.h"
-#include "nimble/nimble_port_freertos.h"
-#include "services/gap/ble_svc_gap.h"
-#include "services/gatt/ble_svc_gatt.h"
 
 static struct ble_profile *ble_profile1;
-// ____________________________________________________
 
 // read from server. True = yes, False = no.
 bool read_flag;

@@ -26,6 +26,7 @@
     "freertos.h": "c",
     "ble_svc_gatt.h": "c",
     "event_groups.h": "c",
-    "testing_functions.h": "c"
+    "testing_functions.h": "c",
+    "nimble_port.h": "c"
   }
 }

@@ -2,6 +2,7 @@
 #define TESTING_FUNCTIONS_H
 
 #include "esp_log.h"
+#include "common.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -11,13 +12,7 @@
 #define POLL_EVENT_READ_FLAG 1
 #define POLL_EVENT_WRITE_FLAG 2
 
-typedef struct ble_profile
-{
-    const struct ble_gap_conn_desc *conn_desc;
-    const struct ble_gatt_svc *service;
-    // struct ble_gatt_chr characteristic[CHARACTERISTIC_ARR_MAX]; // characteristic array holds all the characteristics.
-    struct ble_gatt_chr *characteristic; // characteristic array holds all the characteristics.
-} ble_profile;
+
 
 /**
  * Sets all flags to the value given.
