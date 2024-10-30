@@ -1,25 +1,19 @@
-#include <stdio.h> // we only need this one if we decide to add print statements or similar in here.
-#include <stdint.h>
-#include <stdbool.h>
-
-#include "esp_log.h"
-#include "common.h"
 #include "morse_functions.h"
-#include "testing_functions.h"
+#include "poll_event_task_functions.h"
 
+// debounce macro
+#define DEBOUNCE_MILLIS(x) static int64_t lMillis = 0; if((esp_timer_get_time() - lMillis) < x) return; lMillis = esp_timer_get_time();
 
-static uint32_t mess_buf_end = 0;
-static uint32_t char_mess_buf_end = 0;
+uint32_t mess_buf_end = 0;
+uint32_t char_mess_buf_end = 0;
 
-static int64_t start_time;          // time of last valid start
-static int64_t time_last_end_event; // time of last valid end
-static bool input_in_progress;
+int64_t start_time;          // time of last valid start
+int64_t time_last_end_event; // time of last valid end
+int64_t lMillis = 0; // time since last send.
+bool input_in_progress;
 
-static uint8_t message_buf[MESS_BUFFER_LENGTH];
-static char char_message_buf[CHAR_BUFFER_LENGTH];
-
-static struct ble_profile *ble_profile1;
-
+uint8_t message_buf[MESS_BUFFER_LENGTH];
+char char_message_buf[CHAR_BUFFER_LENGTH];
 
 void debug_print_buffer()
 {
@@ -195,8 +189,7 @@ void encode_morse_code()
     }
 }
 
-
-static void IRAM_ATTR gpio_start_event_handler(void *arg)
+void IRAM_ATTR gpio_start_event_handler(void *arg)
 {
     // ignore false readings. Wait long enough for at least debounce delay.
     // and never allow for writing beyond the message buffer size, leaving room for the transmission end condition "2 2"
@@ -205,8 +198,9 @@ static void IRAM_ATTR gpio_start_event_handler(void *arg)
         return;
     }
     input_in_progress = 1; // to prevent multipress
-
     start_time = esp_timer_get_time(); // store time of last event
+    // // CHECK FOR DEBOUNCE
+    // DEBOUNCE_MILLIS(DEBOUNCE_DELAY);
 
     if ((start_time - time_last_end_event > SPACE_LENGTH) && (mess_buf_end != 0))
     {
@@ -216,14 +210,13 @@ static void IRAM_ATTR gpio_start_event_handler(void *arg)
     }
 }
 
-static void IRAM_ATTR gpio_end_event_handler(void *arg)
+void IRAM_ATTR gpio_end_event_handler(void *arg)
 {
     // ignore false readings. Wait long enough for at least debounce delay. Ensure this is called only after a valid start press.
     if (((esp_timer_get_time() - time_last_end_event) < DEBOUNCE_DELAY) || !input_in_progress)
     {
         return;
     }
-
     time_last_end_event = esp_timer_get_time(); // store time of last event
 
     // ESP_DRAM_LOGI(MORSE_TAG, "last end time: %d", time_last_end_event);
@@ -249,7 +242,7 @@ static void IRAM_ATTR gpio_end_event_handler(void *arg)
     ESP_DRAM_LOGW(MORSE_TAG, "placed in buffer: %d", message_buf[mess_buf_end - 1]);
 }
 
-static void IRAM_ATTR gpio_send_event_handler(void *arg)
+void IRAM_ATTR gpio_send_event_handler(void *arg)
 {
     static int64_t lMillis = 0; // time since last send.
     uint8_t i;
@@ -284,13 +277,18 @@ static void IRAM_ATTR gpio_send_event_handler(void *arg)
  * When read button pressed, read the attribute from the server.
  * Always pass in the profile_ptr as a void argument.
  */
-static void IRAM_ATTR gpio_read_event_handler(void *arg) {
+void IRAM_ATTR gpio_read_event_handler(void *arg) {
+    
+    static int64_t lMillis = 0; 
+    if((esp_timer_get_time() - lMillis) < DEBOUNCE_DELAY) {
+        return; 
+    }
+    ESP_DRAM_LOGI(DEBUG_TAG, "time = %d", esp_timer_get_time());
+    ESP_DRAM_LOGI(DEBUG_TAG, "lmillis = %d", lMillis);
+    ESP_DRAM_LOGI(DEBUG_TAG, "difference = %d", esp_timer_get_time() - lMillis);
+    lMillis = esp_timer_get_time();
+
     ESP_DRAM_LOGI(DEBUG_TAG, "start of read_event");
-    // struct ble_profile *profile_ptr = (struct ble_profile *)arg;
-    // if(!profile_ptr) {
-    //     ESP_DRAM_LOGI(DEBUG_TAG, "profile_ptr is read_event is NULL");
-    //     return;
-    // }
     if(!ble_profile1) {
         ESP_DRAM_LOGI(DEBUG_TAG, "ble_profile is read_event is NULL");
         return;

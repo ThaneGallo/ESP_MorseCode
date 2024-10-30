@@ -1,13 +1,10 @@
-﻿/*modified 10/29/2024*/
-#include "common.h"
+﻿/*modified 10/30/2024*/
+#include "morse_common.h"
 #include "morse_functions.h"
-#include "testing_functions.h"
+#include "poll_event_task_functions.h"
+
 
 static uint8_t white_list_count = 1;
-
-
-static struct ble_profile *ble_profile1;
-
 
 #define CHARACTERISTIC_ARR_MAX 1
 static uint8_t characteristic_count = 0;
@@ -200,7 +197,7 @@ void gatt_conn_init(struct ble_profile *profile)
     }
     // save the global version of the profile pointer
     ble_profile1 = profile;
-    poll_event_set_profile_ptr(ble_profile1);
+    //poll_event_set_profile_ptr(ble_profile1); // outdated since it is now universal.
 }
 
 /**
@@ -342,7 +339,8 @@ void gpio_setup()
     gpio_isr_handler_add(GPIO_INPUT_IO_SEND, gpio_read_event_handler, (void *)GPIO_INPUT_IO_SEND);
 }
 
-void host_task(void *param)
+// ble_task which runs infinitely and checks for ble_events.
+void ble_task(void *param)
 {
     nimble_port_run();
     return;
@@ -423,7 +421,7 @@ void ble_client_setup()
     xTaskCreate(poll_event_task, "Poll Event Task", 2048, NULL, 5, NULL);
 
     // starts first task
-    nimble_port_freertos_init(host_task);
+    nimble_port_freertos_init(ble_task);
 }
 
 void app_main(void)

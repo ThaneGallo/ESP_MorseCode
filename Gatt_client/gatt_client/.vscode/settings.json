@@ -1,7 +1,7 @@
 {
   "C_Cpp.intelliSenseEngine": "default",
   "idf.flashType": "UART",
-  "idf.portWin": "COM3",
+  "idf.portWin": "COM5",
   "idf.adapterTargetName": "esp32",
   "files.associations": {
     "*.c": "c",
@@ -27,6 +27,7 @@
     "ble_svc_gatt.h": "c",
     "event_groups.h": "c",
     "testing_functions.h": "c",
-    "nimble_port.h": "c"
+    "nimble_port.h": "c",
+    "morse_common.h": "c"
   }
 }
