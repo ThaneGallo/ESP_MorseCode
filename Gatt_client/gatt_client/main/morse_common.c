@@ -31,3 +31,18 @@ const ble_addr_t *ble_server_addr_return(){
 const ble_addr_t *ble_client_addr_return(){
     return &client_addr; 
 }
+
+void debug_print_conn_desc(struct ble_gap_conn_desc *conn_desc_ptr)
+{
+    // each ble_addr_t has type and val
+    ESP_LOGI(DEBUG_TAG, "our_id_addr: type = %x, val = %x%x%x%x%x%x", conn_desc_ptr->our_id_addr.type, conn_desc_ptr->our_id_addr.val[0], conn_desc_ptr->our_id_addr.val[1],
+             conn_desc_ptr->our_id_addr.val[2], conn_desc_ptr->our_id_addr.val[3], conn_desc_ptr->our_id_addr.val[4], conn_desc_ptr->our_id_addr.val[5]);
+    ESP_LOGI(DEBUG_TAG, "peer_id_addr: type = %x, val = %x%x%x%x%x%x", conn_desc_ptr->peer_id_addr.type, conn_desc_ptr->peer_id_addr.val[0], conn_desc_ptr->peer_id_addr.val[1],
+             conn_desc_ptr->peer_id_addr.val[2], conn_desc_ptr->peer_id_addr.val[3], conn_desc_ptr->peer_id_addr.val[4], conn_desc_ptr->peer_id_addr.val[5]);
+    ESP_LOGI(DEBUG_TAG, "our_ota_addr: type = %x, val = %x%x%x%x%x%x", conn_desc_ptr->our_ota_addr.type, conn_desc_ptr->our_ota_addr.val[0], conn_desc_ptr->our_ota_addr.val[1],
+             conn_desc_ptr->our_id_addr.val[2], conn_desc_ptr->our_ota_addr.val[3], conn_desc_ptr->our_ota_addr.val[4], conn_desc_ptr->our_ota_addr.val[5]);
+    ESP_LOGI(DEBUG_TAG, "peer_ota_addr: type = %x, val = %x%x%x%x%x%x", conn_desc_ptr->peer_ota_addr.type, conn_desc_ptr->peer_ota_addr.val[0], conn_desc_ptr->peer_ota_addr.val[1],
+             conn_desc_ptr->peer_ota_addr.val[2], conn_desc_ptr->peer_ota_addr.val[3], conn_desc_ptr->peer_ota_addr.val[4], conn_desc_ptr->peer_ota_addr.val[5]);
+
+    // ESP_LOGI(DEBUG_TAG, "our_id_addr: type = %x", conn_desc_ptr->our_id_addr.type); // Control test debug
+}

@@ -1,6 +1,6 @@
 // #include <stdio.h> // we only need this one if we decide to add print statements or similar in here.
 #include "poll_event_task_functions.h"
-
+#include "callback_functions.h" // for the callbacks in poll_event_task
 // static struct ble_profile *ble_profile1;
 
 // read from server. True = yes, False = no.
@@ -25,20 +25,6 @@ int poll_event_set_flag(uint8_t flag, bool val) {
             ESP_LOGI(ERROR_TAG,"invalid flag %d", flag);
             return -1;
     }
-    return 0;
-}
-
-/**
- * Callback function for gatt read events.
- */
-static int ble_gatt_read_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *error, struct ble_gatt_attr *attr, void *arg) {
-    // READ EVENTS
-    if(error->status != 0) {
-        ESP_LOGI(DEBUG_TAG, "ble_gatt_disc_attr_cb error = [handle, status] = [%d, %d]", error->att_handle, error->status);
-        return -1;
-    }
-    // grab the data and print it.
-    ESP_LOGI(MORSE_TAG, "Data from the client: %.*s\n", attr->om->om_len, attr->om->om_data);
     return 0;
 }
 

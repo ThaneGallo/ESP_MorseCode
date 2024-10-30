@@ -280,12 +280,12 @@ void IRAM_ATTR gpio_send_event_handler(void *arg)
 void IRAM_ATTR gpio_read_event_handler(void *arg) {
     
     static int64_t lMillis = 0; 
-    if((esp_timer_get_time() - lMillis) < DEBOUNCE_DELAY) {
+    if((esp_timer_get_time() - lMillis) < DEBOUNCE_DELAY || input_in_progress) {
         return; 
     }
-    ESP_DRAM_LOGI(DEBUG_TAG, "time = %d", esp_timer_get_time());
-    ESP_DRAM_LOGI(DEBUG_TAG, "lmillis = %d", lMillis);
-    ESP_DRAM_LOGI(DEBUG_TAG, "difference = %d", esp_timer_get_time() - lMillis);
+    // ESP_DRAM_LOGI(DEBUG_TAG, "time = %d", esp_timer_get_time());
+    // ESP_DRAM_LOGI(DEBUG_TAG, "lmillis = %d", lMillis);
+    // ESP_DRAM_LOGI(DEBUG_TAG, "difference = %d", esp_timer_get_time() - lMillis);
     lMillis = esp_timer_get_time();
 
     ESP_DRAM_LOGI(DEBUG_TAG, "start of read_event");

@@ -32,6 +32,8 @@
 #define DEBUG_TAG "Debugging tag"
 #define ERROR_TAG "||| ERROR |||"
 
+#define CHARACTERISTIC_ARR_MAX 1
+
 typedef struct ble_profile
 {
     const struct ble_gap_conn_desc *conn_desc;
@@ -45,5 +47,7 @@ extern struct ble_profile *ble_profile1;
 
 const ble_addr_t *ble_server_addr_return();
 const ble_addr_t *ble_client_addr_return();
+
+void debug_print_conn_desc(struct ble_gap_conn_desc *conn_desc_ptr);
 
 #endif
