@@ -10,17 +10,15 @@ This is done using two ESP32 development boards and the [ESP-IDF](https://github
 
 FreeRTOS, GPIO, RTC, ISR,
 
-There are buttons implimented on the GPIO pins of the development board with multiple ISRs to remove any polling and minimize resource utilization. 
+There are two buttons implimented on the GPIO pins of the development board with multiple interrupt service routines (ISRs) to minimize polling and resource utilization. 
 
-There are two buttons, one for the writing and encoding of the message and the other for sending it to the other device. 
+Of these two buttons, one for the writing and encoding of the message and the other for sending it to the server device. 
 
-The write/encode button functions as normal for morse code communication, where short presses and long presses (dots or dashes) are mapped to 0s and 1s in our code, respectively. Letters are seperated by 2s and are signified by a 2 second inteveral between button presses by the user. This "binary" array is concatenated turning the string of 0s and 1s
-
-
-Then this array is concatenated using the encoding function giving turning each letter to a character to send one value at a time compared to having to send several bytes of data per letter. The GATT profile contains a characteristic for the translated message.  
+The write/encode button functions as normal for morse code communication, where short presses and long presses (dots or dashes) are mapped to 0s and 1s in our code, respectively. Letters are seperated by 2s and are signified by a 2 second inteveral between button presses by the user. Before sending, the binary input array is converted into a character array according to the morse encoding resulting in a 28&% reduction of packet size.
 
 
 
+## BLE Structure
 
 
 ## How to use
