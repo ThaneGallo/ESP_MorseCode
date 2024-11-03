@@ -15,6 +15,11 @@ int ble_gatt_disc_svc_cb(uint16_t conn_handle, const struct ble_gatt_error *erro
 int ble_gatt_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *error, const struct ble_gatt_chr *chr, void *arg);
 
 /**
+ * Callback function for gatt write events.
+ */
+int ble_gatt_write_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *error, struct ble_gatt_attr *attr, void *arg);
+
+/**
  * Callback function for gatt read events.
  */
 int ble_gatt_read_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *error, struct ble_gatt_attr *attr, void *arg);

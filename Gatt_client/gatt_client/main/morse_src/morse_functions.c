@@ -4,16 +4,16 @@
 // debounce macro
 #define DEBOUNCE_MILLIS(x) static int64_t lMillis = 0; if((esp_timer_get_time() - lMillis) < x) return; lMillis = esp_timer_get_time();
 
-uint32_t mess_buf_end = 0;
-uint32_t char_mess_buf_end = 0;
-
 int64_t start_time;          // time of last valid start
 int64_t time_last_end_event; // time of last valid end
 int64_t lMillis = 0; // time since last send.
 bool input_in_progress;
 
+// initialize the buffers
 uint8_t message_buf[MESS_BUFFER_LENGTH];
 char char_message_buf[CHAR_BUFFER_LENGTH];
+uint32_t mess_buf_end = 0;
+uint32_t char_mess_buf_end = 0;
 
 void debug_print_buffer()
 {
@@ -184,7 +184,7 @@ void encode_morse_code()
         char_message_buf[char_mess_buf_end] = get_letter_morse_code(charDecimal);
         char_mess_buf_end++;
 
-        ESP_DRAM_LOGI(MORSE_TAG, "Character decoded: %c", get_letter_morse_code(charDecimal));
+        // ESP_DRAM_LOGI(MORSE_TAG, "Character decoded: %c", get_letter_morse_code(charDecimal));
         // ESP_DRAM_LOGI(MORSE_TAG, "value at buffer start index :%d", message_buf[startIndex]); // what int is at the start of the next loop
     }
 }
@@ -269,8 +269,9 @@ void IRAM_ATTR gpio_send_event_handler(void *arg)
         }
     }
 
-    char_mess_buf_end = 0;
-    mess_buf_end = 0;
+    poll_event_set_all_flags(true); // set write and read checks to true.
+    // char_mess_buf_end = 0;
+    // mess_buf_end = 0;
 }
 
 /**

@@ -120,13 +120,22 @@ int ble_gatt_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *error, co
     return 0;
 }
 
+int ble_gatt_write_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *error, struct ble_gatt_attr *attr, void *arg) {
+    // WRITE EVENTS
+    if(error->status != 0) {
+        ESP_LOGI(DEBUG_TAG, "ble_gatt_write_chr_cb error = [handle, status] = [%d, %d]", error->att_handle, error->status);
+        return -1;
+    }
+    return 0;
+}
+
 int ble_gatt_read_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *error, struct ble_gatt_attr *attr, void *arg) {
     // READ EVENTS
     if(error->status != 0) {
-        ESP_LOGI(DEBUG_TAG, "ble_gatt_disc_attr_cb error = [handle, status] = [%d, %d]", error->att_handle, error->status);
+        ESP_LOGI(DEBUG_TAG, "ble_gatt_read_chr_cb error = [handle, status] = [%d, %d]", error->att_handle, error->status);
         return -1;
     }
     // grab the data and print it.
-    ESP_LOGI(MORSE_TAG, "Data from the client: %.*s\n", attr->om->om_len, attr->om->om_data);
+    ESP_LOGI(MORSE_TAG, "Data read from the server: %.*s\n", attr->om->om_len, attr->om->om_data);
     return 0;
 }

@@ -29,6 +29,7 @@
     "testing_functions.h": "c",
     "nimble_port.h": "c",
     "morse_common.h": "c",
-    "callback_functions.h": "c"
+    "callback_functions.h": "c",
+    "poll_event_task_functions.h": "c"
   }
 }

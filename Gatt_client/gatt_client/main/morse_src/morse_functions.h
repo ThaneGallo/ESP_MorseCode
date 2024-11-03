@@ -13,9 +13,13 @@
 #define GPIO_INPUT_IO_SEND 23 // send event sense
 #define ESP_INTR_FLAG_DEFAULT 0
 
+// the message and character buffers
 #define MESS_BUFFER_LENGTH 2048
 #define CHAR_BUFFER_LENGTH 256
-
+extern uint8_t message_buf[MESS_BUFFER_LENGTH];
+extern char char_message_buf[CHAR_BUFFER_LENGTH];
+extern uint32_t mess_buf_end;
+extern uint32_t char_mess_buf_end;
 
 /**
  * Prints contents of message buffer and character message buffer

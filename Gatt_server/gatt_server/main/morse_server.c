@@ -19,6 +19,7 @@
 
 
 #define GATTS_TAG "BLE-Server"
+#define ERROR_TAG "||| ERROR |||"
 static uint8_t white_list_count = 1;
 
 static const ble_addr_t serverAddr = {
@@ -52,10 +53,27 @@ static int device_morse(uint16_t con_handle, uint16_t attr_handle, struct ble_ga
     switch(ctxt->op) {
         case BLE_GATT_ACCESS_OP_READ_CHR: {
             //os_mbuf_append(ctxt->om, "Data from the server", strlen("Data from the server"));
-            //rc = os_mbuf_copydata(morse_data_buf, 0, morse_data_buf->om_len, ctxt->om);
+            // rc = os_mbuf_copydata(morse_data_buf, 0, morse_data_buf->om_len, ctxt->om);
             struct os_mbuf *morse_data_buf = mbuf_return_mbuf();
+
             rc = os_mbuf_append(ctxt->om, morse_data_buf->om_data, morse_data_buf->om_len);
             printf("Data requested by client: %.*s\n", morse_data_buf->om_len, morse_data_buf->om_data);
+
+            // 11/3/24 mbuf testing to print longer values
+            // uint8_t count = 1;
+            // ESP_LOGI(GATTS_TAG, "Data requested by client: ");
+            // do {
+            //     rc = os_mbuf_append(ctxt->om, morse_data_buf->om_data, morse_data_buf->om_len);
+            //     if(rc != 0) {
+            //         ESP_LOGE(ERROR_TAG, "os_mbuf append error on line %d, err = %d", __LINE__, rc);
+            //         break;
+            //     }
+            //     ESP_LOGI(ERROR_TAG, "count %d", count++);
+            //     ESP_LOGI(GATTS_TAG, "%.*s", morse_data_buf->om_len, morse_data_buf->om_data);
+            //     morse_data_buf = morse_data_buf->om_next.sle_next;
+            // } while(morse_data_buf->om_next.sle_next != NULL);
+            // printf("\n");
+            
             return rc;
         }
         case BLE_GATT_ACCESS_OP_WRITE_CHR: {

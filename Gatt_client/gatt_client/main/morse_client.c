@@ -196,8 +196,8 @@ void gpio_setup()
     // takes end time of button1 pess
     gpio_isr_handler_add(GPIO_INPUT_IO_END, gpio_end_event_handler, (void *)GPIO_INPUT_IO_END);
 
-    // gpio_isr_handler_add(GPIO_INPUT_IO_SEND, gpio_send_event_handler, (void *)GPIO_INPUT_IO_SEND);
-    gpio_isr_handler_add(GPIO_INPUT_IO_SEND, gpio_read_event_handler, (void *)GPIO_INPUT_IO_SEND);
+    gpio_isr_handler_add(GPIO_INPUT_IO_SEND, gpio_send_event_handler, (void *)GPIO_INPUT_IO_SEND);
+    // gpio_isr_handler_add(GPIO_INPUT_IO_SEND, gpio_read_event_handler, (void *)GPIO_INPUT_IO_SEND);
 }
 
 // ble_task which runs infinitely and checks for ble_events.

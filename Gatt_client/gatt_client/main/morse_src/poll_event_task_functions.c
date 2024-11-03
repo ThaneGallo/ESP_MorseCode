@@ -1,12 +1,13 @@
 // #include <stdio.h> // we only need this one if we decide to add print statements or similar in here.
 #include "poll_event_task_functions.h"
 #include "callback_functions.h" // for the callbacks in poll_event_task
+#include "morse_functions.h" // for writing to mem and character buffers
 // static struct ble_profile *ble_profile1;
 
 // read from server. True = yes, False = no.
-bool read_flag;
+bool read_flag = false;
 // send to server. True = yes, False = no.
-bool send_flag;
+bool send_flag = false;
 
 void poll_event_set_all_flags(bool val) {
     read_flag = val;
@@ -33,19 +34,26 @@ void poll_event_task(void *param) {
     int cnt = 0;
     while (1)
     {
+        int rc; // for error codes
         //printf("cnt: %d\n", cnt++);
         ESP_LOGI(MORSE_TAG,"cnt: %d", cnt++);
+        if(send_flag) {
+            send_flag = false;
+            // ESP_LOGI(DEBUG_TAG,"write_flag true");
+            rc = ble_gattc_write_flat(ble_profile1->conn_desc->conn_handle, ble_profile1->characteristic->val_handle, char_message_buf, char_mess_buf_end, ble_gatt_write_chr_cb, NULL);
+            if(rc != 0) {
+                ESP_LOGI(ERROR_TAG, "write_event error rc = %d", rc);
+                return;
+            }
+        }
         if(read_flag) {
             read_flag = false;
-            ESP_LOGI(DEBUG_TAG,"read_flag true");
-            int rc = ble_gattc_read(ble_profile1->conn_desc->conn_handle, ble_profile1->characteristic->val_handle, ble_gatt_read_chr_cb, NULL);
+            // ESP_LOGI(DEBUG_TAG,"read_flag true");
+            rc = ble_gattc_read(ble_profile1->conn_desc->conn_handle, ble_profile1->characteristic->val_handle, ble_gatt_read_chr_cb, NULL);
             if(rc != 0) {
                 ESP_LOGI(ERROR_TAG, "read_event error rc = %d", rc);
                 return;
             }
-        }
-        if(send_flag) {
-            // do something (add later)
         }
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }

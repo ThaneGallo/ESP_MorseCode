@@ -6,6 +6,11 @@
 #define POLL_EVENT_READ_FLAG 1
 #define POLL_EVENT_SEND_FLAG 2
 
+// read from server. True = yes, False = no.
+extern bool read_flag;
+// send to server. True = yes, False = no.
+extern bool send_flag;
+
 /**
  * Sets all flags to the value given.
  */
