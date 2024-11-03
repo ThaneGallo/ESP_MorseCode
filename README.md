@@ -14,7 +14,7 @@ This project will be using the an ESP32 development board and the [ESP-IDF](http
 
 ### What to flash and how
 
-There are currently two differnet files to be flashed, one for the client and one for the server. They are in their directories labelled ... and ... respectively. Simply use the flashing tool in the ESP-IDF toolkit and flash each dev board and they should pair with one another and begin communications.
+There are currently two differnet files to be flashed, one for the client and one for the server. They are in their directories labelled gatt_client and gatt_server respectively. Simply use the flashing tool in the ESP-IDF toolkit and flash each dev board and they should pair with one another and begin communications.
 
 
 
