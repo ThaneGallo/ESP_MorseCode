@@ -1,7 +1,7 @@
 {
     "version":            "1.1",
     "project_name":       "gatt_client_demo",
-    "project_version":    "ff255bb-dirty",
+    "project_version":    "c4cd4c6-dirty",
     "project_path":       "C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_client/gatt_client",
     "idf_path":           "C:/Users/Cooper/esp/v5.3/esp-idf",
     "build_dir":          "C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_client/gatt_client/build",
@@ -1165,8 +1165,8 @@
             "managed_reqs": [],
             "managed_priv_reqs": [],
             "file": "C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_client/gatt_client/build/esp-idf/main/libmain.a",
-            "sources": [ "C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_client/gatt_client/main/morse_functions.c", "C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_client/gatt_client/main/gattc_demo.c" ],
-            "include_dirs": [ "." ]
+            "sources": [ "C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_client/gatt_client/main/morse_client.c", "C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_client/gatt_client/main/morse_src/morse_common.c", "C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_client/gatt_client/main/morse_src/callback_functions.c", "C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_client/gatt_client/main/morse_src/morse_functions.c", "C:/Users/Cooper/OneDrive/Documents/GitHub/ESP_MorseCode/Gatt_client/gatt_client/main/morse_src/poll_event_task_functions.c" ],
+            "include_dirs": [ ".", "morse_src" ]
         },
         "mbedtls": {
             "alias": "idf::mbedtls",
@@ -2764,7 +2764,7 @@
             "priv_reqs": [],
             "managed_reqs": [],
             "managed_priv_reqs": [],
-            "include_dirs": [ "." ]
+            "include_dirs": [ ".", "morse_src" ]
         }
     },
     "debug_prefix_map_gdbinit": ""

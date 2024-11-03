@@ -21,6 +21,15 @@
     "ostream": "c",
     "regex": "c",
     "array": "c",
-    "morse_functions.h": "c"
+    "morse_functions.h": "c",
+    "format": "c",
+    "freertos.h": "c",
+    "ble_svc_gatt.h": "c",
+    "event_groups.h": "c",
+    "testing_functions.h": "c",
+    "nimble_port.h": "c",
+    "morse_common.h": "c",
+    "callback_functions.h": "c",
+    "poll_event_task_functions.h": "c"
   }
 }
