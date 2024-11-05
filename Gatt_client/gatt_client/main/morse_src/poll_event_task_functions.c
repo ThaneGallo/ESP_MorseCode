@@ -41,6 +41,8 @@ void poll_event_task(void *param) {
             send_flag = false;
             // ESP_LOGI(DEBUG_TAG,"write_flag true");
             rc = ble_gattc_write_flat(ble_profile1->conn_desc->conn_handle, ble_profile1->characteristic->val_handle, char_message_buf, char_mess_buf_end, ble_gatt_write_chr_cb, NULL);
+            char_mess_buf_end = 0;
+            mess_buf_end = 0;
             if(rc != 0) {
                 ESP_LOGI(ERROR_TAG, "write_event error rc = %d", rc);
                 return;
