@@ -1,14 +1,35 @@
 {
-    "idf.portWin": "COM3",
-    "idf.espIdfPathWin": "C:\\Users\\thane\\esp\\v5.2.2\\esp-idf",
-    "idf.pythonBinPathWin": "C:\\Users\\thane\\.espressif\\python_env\\idf5.2_py3.11_env\\Scripts\\python.exe",
-    "idf.toolsPathWin": "C:\\Users\\thane\\.espressif",
-    "idf.customExtraPaths": "C:\\Users\\thane\\.espressif\\tools\\xtensa-esp-elf-gdb\\14.2_20240403\\xtensa-esp-elf-gdb\\bin;C:\\Users\\thane\\.espressif\\tools\\riscv32-esp-elf-gdb\\14.2_20240403\\riscv32-esp-elf-gdb\\bin;C:\\Users\\thane\\.espressif\\tools\\xtensa-esp-elf\\esp-13.2.0_20230928\\xtensa-esp-elf\\bin;C:\\Users\\thane\\.espressif\\tools\\riscv32-esp-elf\\esp-13.2.0_20230928\\riscv32-esp-elf\\bin;C:\\Users\\thane\\.espressif\\tools\\esp32ulp-elf\\2.35_20220830\\esp32ulp-elf\\bin;C:\\Users\\thane\\.espressif\\tools\\cmake\\3.24.0\\bin;C:\\Users\\thane\\.espressif\\tools\\openocd-esp32\\v0.12.0-esp32-20240318\\openocd-esp32\\bin;C:\\Users\\thane\\.espressif\\tools\\ninja\\1.11.1;C:\\Users\\thane\\.espressif\\tools\\idf-exe\\1.0.3;C:\\Users\\thane\\.espressif\\tools\\ccache\\4.8\\ccache-4.8-windows-x86_64;C:\\Users\\thane\\.espressif\\tools\\dfu-util\\0.11\\dfu-util-0.11-win64;C:\\Users\\thane\\.espressif\\tools\\esp-rom-elfs\\20230320",
-    "idf.customExtraVars": {
-        "OPENOCD_SCRIPTS": "C:\\Users\\thane\\.espressif\\tools\\openocd-esp32\\v0.12.0-esp32-20240318/openocd-esp32/share/openocd/scripts",
-        "IDF_CCACHE_ENABLE": "1",
-        "ESP_ROM_ELF_DIR": "C:\\Users\\thane\\.espressif\\tools\\esp-rom-elfs\\20230320/"
-    },
-    "idf.gitPathWin": "C:\\Users\\thane\\.espressif\\tools\\idf-git\\2.39.2\\cmd\\git.exe",
-    "cmake.sourceDirectory": "C:/Users/thane/projects/ESP_MorseCode/Gatt_client/gatt_client/main"
+  "C_Cpp.intelliSenseEngine": "default",
+  "idf.flashType": "UART",
+  "idf.portWin": "COM5",
+  "idf.adapterTargetName": "esp32",
+  "files.associations": {
+    "*.c": "c",
+    "task.h": "c",
+    "gpio.h": "c",
+    "ble_hs.h": "c",
+    "cstdint": "c",
+    "*.inc": "c",
+    "esp_bt.h": "c",
+    "esp_log.h": "c",
+    "esp_event.h": "c",
+    "complex": "c",
+    "*.tcc": "c",
+    "fstream": "c",
+    "iomanip": "c",
+    "istream": "c",
+    "ostream": "c",
+    "regex": "c",
+    "array": "c",
+    "morse_functions.h": "c",
+    "format": "c",
+    "freertos.h": "c",
+    "ble_svc_gatt.h": "c",
+    "event_groups.h": "c",
+    "testing_functions.h": "c",
+    "nimble_port.h": "c",
+    "morse_common.h": "c",
+    "callback_functions.h": "c",
+    "poll_event_task_functions.h": "c"
+  }
 }
