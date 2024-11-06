@@ -13,7 +13,7 @@ The struct created within is for our custom BLE profile to save any connection d
 Contains all callback functions for the gap/gatt functions to help process connections 
 
 ### morse_functions.c/h
-Contains all GPIO functions and interrupt service routines to control the read and write buttons. Each routine triggers a flag whcih is set and handled in the main polling task. There are also a few helper functions to encode our binary array input into the corresponding character array.
+Contains all GPIO functions and interrupt service routines to control the read and write buttons. Each routine triggers a flag which is set and handled in the main polling task. There are also a few helper functions to encode our binary array input into the corresponding character array.
 
 ### poll_event_task_functions.c/h
 Contains the task thread which would poll for the status of the flags which are to be set for the buttons. There is a read and write flag which when triggered would read and write from and to the server.
