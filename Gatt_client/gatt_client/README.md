@@ -10,7 +10,7 @@ Contains all files and variables which are to be global between all headers. The
 The struct created within is for our custom BLE profile to save any connection data along with services and characteristics contained within for future use.
 
 ### callback_functions.c/h
-Contains all callback functions for the gap/gatt functions to help process connections 
+Contains all callback functions for the gap/gatt functions to help process connections.
 
 ### morse_functions.c/h
 Contains all GPIO functions and interrupt service routines to control the read and write buttons. Each routine triggers a flag which is set and handled in the main polling task. There are also a few helper functions to encode our binary array input into the corresponding character array.
