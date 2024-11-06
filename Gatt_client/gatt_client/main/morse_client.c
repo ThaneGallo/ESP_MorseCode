@@ -152,7 +152,8 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg)
         }
         break;
     case BLE_GAP_EVENT_DISCONNECT:
-        ESP_LOGI(MORSE_TAG, "ble_gap_event_disconnect successful");
+        ESP_LOGI(MORSE_TAG, "ble_gap_event_disconnect successful, restarting to establish new connection.");
+        esp_restart();
         break;
     default:
         ESP_LOGI(MORSE_TAG, "Called Event without handler: %u", event->type);
@@ -248,10 +249,8 @@ void ble_app_on_sync(void)
     }
 
 
-    uint8_t ble_addr_type = BLE_OWN_ADDR_RANDOM;
-
     // begin gap discovery
-    err = ble_gap_disc(ble_addr_type, 10 * 1000, &disc_params, ble_gap_event, profile);
+    err = ble_gap_disc(BLE_OWN_ADDR_RANDOM, 10 * 1000, &disc_params, ble_gap_event, profile);
     if (err != 0)
     {
         ESP_LOGI(MORSE_TAG, "BLE GAP Discovery Failed: %u", err);
