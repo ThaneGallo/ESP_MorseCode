@@ -79,10 +79,11 @@ As the connection is occurring our system is listening for GPIO inputs as they u
 
 Shortly after this begins another task is started named “Poll Event” which would check for the read and write flags which would be set with the GPIO buttons. This is done so the ISR would not contain any large or complex functions to minimize overhead and would offload it to this poll event task.
 
-Each individual part of our system can be found with more details within the hyperlinks below.
+Each individual part of our system can be found with more details within the hyperlinks below:
 
-[Gatt_Client](gatt_client/)
-[Gatt_Server](myLib/README.md)
+* [Gatt_Client](Gatt_client/)
+
+* [Gatt_Server](Gatt_server)
 
 
 
