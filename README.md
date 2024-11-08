@@ -69,11 +69,20 @@ Once the message is completed, the “send buffer” button (GPIO 23) can be tri
 
 ## Software Overview
 
+Overaall Headerfile Organization can be seen in the image below.
+
+![Software Overview](Images/ESP_Software_Overview.png)
+
 Our software begins by setting up GPIO functions and beginning the BLE connection. Because a whitelist is used our client and server can only connect to each other which would prevent any unwanted changes and interference from an outside user. Next a discovery period begins so the client is able to find the server's advertisement packets and begin connecting. While connecting all important information such as the connection description, included services and characteristics would be saved into a structure named ble_profile for future events. 
 
 As the connection is occurring our system is listening for GPIO inputs as they use interrupts to save and write data to the morse code buffer. Each of those actions is contained within its own dedicated button.
 
 Shortly after this begins another task is started named “Poll Event” which would check for the read and write flags which would be set with the GPIO buttons. This is done so the ISR would not contain any large or complex functions to minimize overhead and would offload it to this poll event task.
+
+Each individual part of our system can be found with more details within the hyperlinks below.
+
+[Gatt_Client](gatt_client/)
+[Gatt_Server](myLib/README.md)
 
 
 
