@@ -15,20 +15,6 @@ For more specifics regarding flashing and setup, see the appropriate sections fr
 
 [Software Overview](#Software-Overview)
 
-Gatt client
-Morse_client.c
-
-
-Additional header and code files
-morse_common.c/.h
-morse_functions.c/.h
-callback_functions.c/.h
-poll_event_task_functions.c/.h
-Gatt Server
-morse_server.c
-Additional files
-morse_mbuf.c/.h
-
 ## Introduction
 
 There are two buttons implemented on the GPIO pins of the development board with multiple interrupt service routines (ISRs) to minimize polling and resource utilization. 
@@ -46,11 +32,11 @@ If the characteristic is read, it shows the client the previously written value.
 
 ## Setup and Flashing
 
-
 ### Hardware Setup
 The client hardware setup is shown below:
 ![Hardware Setup](Images/ESP-32_MorseCode.png)
 
+Although this implimentation uses an external 5V power source this should only be the case post-flash as the serial cable to flash and monitor the device also provides power.
 
 ### What to flash and how
 
@@ -61,9 +47,7 @@ Each board must be flashed with the code from their directories, labeled gatt_cl
 
 GPIO 4 and 5 are both connected to the “fill_buffer” button, with the two pins responsible for monitoring the press and release of the button.
 
-
 This button measures the time between press and release events using the real-time clock (RTC) on the development board. The duration of the press is then compared to a global value which is set to one second (1000000 microseconds) by default to decide for a short (0 in buffer) or long press (1 in buffer). Additional inputs are counted towards the current character unless two seconds have elapsed between the last and current input, in which case the current input shall count towards a new character.
-
 
 Once the message is completed, the “send buffer” button (GPIO 23) can be triggered to encode the message buffer, which fills the character buffer then sends it to the server device.
 
@@ -73,25 +57,23 @@ Overaall Headerfile Organization can be seen in the image below.
 
 ![Software Overview](Images/ESP_Software_Overview.png)
 
-Our software begins by setting up GPIO functions and beginning the BLE connection. Because a whitelist is used our client and server can only connect to each other which would prevent any unwanted changes and interference from an outside user. Next a discovery period begins so the client is able to find the server's advertisement packets and begin connecting. While connecting all important information such as the connection description, included services and characteristics would be saved into a structure named ble_profile for future events. 
+Our software begins by setting up GPIO functions and beginning the BLE connection. Because a whitelist is used our client and server can only connect to each other which would prevent any unwanted changes and interference from an outside user. Next a discovery period begins so the client is able to find the server's advertisement packets and begin connecting. While connecting, all important information such as the connection description, included services and characteristics would be saved into a structure named ble_profile for future events. 
 
 As the connection is occurring our system is listening for GPIO inputs as they use interrupts to save and write data to the morse code buffer. Each of those actions is contained within its own dedicated button.
 
 Shortly after this begins another task is started named “Poll Event” which would check for the read and write flags which would be set with the GPIO buttons. This is done so the ISR would not contain any large or complex functions to minimize overhead and would offload it to this poll event task.
 
-Each individual part of our system can be found with more details within the hyperlinks below:
+Each device has a corresponding hyperlink with more information on structure below:
 
 * [Gatt_Client](Gatt_client/)
 
 * [Gatt_Server](Gatt_server)
 
 
-
 ## Known Bugs
 
-On rare occasion there is a stack overflow
 List of bugs:
-* Stack overflow random crashes
+* Stack overflow random crashes (rare)
 * Large messages are not property saved to be written 
 
 ## Future Works
