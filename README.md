@@ -87,7 +87,8 @@ Each device has a corresponding hyperlink with more information on structure bel
 
 List of bugs:
 * Stack overflow random crashes (rare)
-* Large messages are not property saved to be written 
+* Large messages are not property saved to be written
+* Button debounce issues - ISR events for the fill buffer button may occur multiple times. Press send button to remedy. 
 
 ## Future Works
 [BLE controlled STM32Quadcopter](https://github.com/ThaneGallo/Stm32QuadCopter)
