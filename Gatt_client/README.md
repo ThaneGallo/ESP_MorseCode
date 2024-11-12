@@ -4,6 +4,8 @@
 
 Within the main directory, morse_client.c is our main file and all of the header files below are located within the morse_src directory.
 
+By default the name of the client device is "BLE-Scan-Client".
+
 ### morse_common.c/h
 Contains all files and variables which are to be global between all headers. The headers included are ESP NimBLE libraries, FreeRTOS, and any std C headers. 
 
