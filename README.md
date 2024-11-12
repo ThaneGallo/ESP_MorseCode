@@ -51,7 +51,9 @@ The server hardware setup only requires power, which can be achieved through the
 
 ### What to flash and how
 
-Each board must be flashed with the code from their directories, labeled gatt_client and gatt_server respectively. The boards can be flashed using the build and flash tool in the ESP-IDF toolkit. They should immediately pair with one another and begin communication. If issues arise, try resetting the server, then resetting the client in that order. Also note if the client cannot find the server within 10 seconds of initializing the search it must be rebooted.
+Each board must be flashed with the code from their directories, labeled gatt_client and gatt_server respectively. The boards can be flashed using the build and flash tool in the ESP-IDF toolkit. They should immediately pair with one another and begin communication. If issues arise, try resetting the server, then the clinet.
+
+Note that the Micro USB cables used to flash the ESP-32 boards can be left connected to boards to be used as the primary source of power, as monitoring the terminal output allows observation of program behavior.
 
 
 ### Using the buttons
@@ -64,7 +66,7 @@ Once the message is completed, the “send buffer” button (GPIO 23) can be tri
 
 ## Software Overview
 
-Overaall Headerfile Organization can be seen in the image below.
+Overall Headerfile Organization can be seen in the image below.
 
 ![Software Overview](Images/ESP_Software_Overview.png)
 
