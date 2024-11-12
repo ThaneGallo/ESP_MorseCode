@@ -33,10 +33,21 @@ If the characteristic is read, it shows the client the previously written value.
 ## Setup and Flashing
 
 ### Hardware Setup
-The client hardware setup is shown below:
+
+The equipment needed for this project is:
+* Two ESP-32 dev boards, with bluetooth capability. We used ESP-32S boards with the ESP-WROOM-32 chip.
+* Two button switches for the “fill buffer” and “send buffer” buttons.
+* At least 6 Male to Male Dupont cables for connecting GPIO pins, buttons, and dev boards.
+* One breadboard or other method of stabilizing the dev boards and connecting GPIO pins and buttons.
+* Two Micro USB cables for flashing and monitoring the ESP-32 boards.
+* A computer or other device capable of flashing the boards and monitoring terminal outputs.
+
+
+The client hardware setup, featuring power and the buttons for “fill buffer” and “send buffer” are shown below. Note that power can be provided to the ESP-32 through either the Micro USB 
+
 ![Hardware Setup](Images/ESP-32_MorseCode.png)
 
-Although this implimentation uses an external 5V power source this should only be the case post-flash as the serial cable to flash and monitor the device also provides power.
+The server hardware setup only requires power, which can be achieved through the Micro USB cable.
 
 ### What to flash and how
 
